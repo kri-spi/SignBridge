@@ -1,7 +1,4 @@
-import { useEffect } from "react";
-import { Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
-import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
-import { useIsFocused } from "@react-navigation/native";
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 
 import { useGestureText } from "../contexts/gesture-text";
@@ -15,17 +12,7 @@ const samplePhrases = [
 ];
 
 export default function GestureScreen() {
-  const device = useCameraDevice("front");
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const isFocused = useIsFocused();
   const { appendText } = useGestureText();
-
-  // Auto-request camera permission on mount if on mobile
-  useEffect(() => {
-    if (Platform.OS !== "web" && !hasPermission) {
-      requestPermission();
-    }
-  }, [hasPermission, requestPermission]);
 
   const handleCapture = () => {
     const phrase =
@@ -33,8 +20,6 @@ export default function GestureScreen() {
     appendText(phrase);
     router.back();
   };
-
-  const hasCamera = Boolean(device) && hasPermission && Platform.OS !== "web";
 
   return (
     <View style={styles.stage}>
@@ -45,30 +30,12 @@ export default function GestureScreen() {
         </View>
 
         <View style={styles.cameraWrap}>
-          {hasCamera ? (
-            <Camera
-              style={styles.camera}
-              device={device}
-              isActive={isFocused}
-            />
-          ) : (
-            <View style={styles.cameraFallback}>
-              <Text style={styles.fallbackTitle}>Camera unavailable</Text>
-              <Text style={styles.fallbackText}>
-                {Platform.OS === "web"
-                  ? "Gesture capture is not supported on web."
-                  : "Enable camera access to start gesture capture."}
-              </Text>
-              {!hasPermission && Platform.OS !== "web" && (
-                <Pressable
-                  style={styles.permissionButton}
-                  onPress={requestPermission}
-                >
-                  <Text style={styles.permissionButtonText}>Allow camera</Text>
-                </Pressable>
-              )}
-            </View>
-          )}
+          <View style={styles.cameraFallback}>
+            <Text style={styles.fallbackTitle}>Camera unavailable</Text>
+            <Text style={styles.fallbackText}>
+              Gesture capture requires camera implementation.
+            </Text>
+          </View>
         </View>
 
         <View style={styles.actions}>
@@ -139,25 +106,9 @@ const styles = StyleSheet.create({
     color: "#9aa1ad",
     fontSize: 13,
     marginTop: 8,
-    textAlign: "center",
-  },
-  permissionButton: {
-    marginTop: 16,
+  cameraFallback: {
     paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: "#2a3247",
-  },
-  permissionButtonText: {
-    color: "#f0f3f8",
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-  },
   actions: {
-    marginTop: 18,
-    gap: 10,
-  },
   captureButton: {
     height: 50,
     borderRadius: 14,
