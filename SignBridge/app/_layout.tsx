@@ -1,5 +1,11 @@
 import { Stack } from "expo-router";
 
+import { GestureTextProvider } from "../contexts/gesture-text";
+
 export default function RootLayout() {
-  return <Stack />;
+  return (
+    <GestureTextProvider>
+      <Stack />
+    </GestureTextProvider>
+  );
 }
