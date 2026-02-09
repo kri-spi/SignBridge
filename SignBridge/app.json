@@ -47,6 +47,12 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "SignBridge uses the camera for gesture input."
+        }
       ]
     ],
     "experiments": {
