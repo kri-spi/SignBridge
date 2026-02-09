@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect } from "react";
 import { Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
 import { useIsFocused } from "@react-navigation/native";
@@ -19,6 +19,13 @@ export default function GestureScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const isFocused = useIsFocused();
   const { appendText } = useGestureText();
+
+  // Auto-request camera permission on mount if on mobile
+  useEffect(() => {
+    if (Platform.OS !== "web" && !hasPermission) {
+      requestPermission();
+    }
+  }, [hasPermission, requestPermission]);
 
   const handleCapture = () => {
     const phrase =
