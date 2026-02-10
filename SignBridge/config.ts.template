@@ -1,0 +1,25 @@
+/**
+ * Configuration Template for SignBridge
+ * 
+ * SETUP INSTRUCTIONS:
+ * 1. Copy this file to `config.ts` (remove the .template extension)
+ * 2. Update SERVER_IP with your computer's local IP address
+ * 
+ * To find your IP:
+ * - macOS/Linux: Run `ipconfig getifaddr en0` or `ifconfig`
+ * - Windows: Run `ipconfig` and look for IPv4 Address
+ */
+
+// CHANGE THIS to your computer's local IP address
+// Example: "192.168.1.100" or "10.241.140.42"
+export const SERVER_IP = "localhost";  // Replace with your actual IP when testing on device
+
+// Server port (usually no need to change)
+export const SERVER_PORT = 8000;
+
+// WebSocket URL - automatically constructed from IP and port
+export const WS_URL = `ws://${SERVER_IP}:${SERVER_PORT}/ws`;
+
+// For development on web/simulator, you can use localhost
+// Uncomment this line if you want to use localhost instead:
+// export const WS_URL = "ws://localhost:8000/ws";

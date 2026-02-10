@@ -41,27 +41,39 @@ The WebSocket server is now running at `ws://localhost:8000/ws`
 cd ../SignBridge  # From backend directory
 ```
 
-### 2.2 Update WebSocket URL (if needed)
-
-If testing on a real device, update the WebSocket URL in:
-`hooks/useSignRecognition.ts`
-
-Replace:
-```typescript
-const WS_URL = "ws://localhost:8000/ws";
+### 2.2 Install dependencies
+```bash
+npm install
 ```
 
-With your computer's local IP (find with `ipconfig` or `ifconfig`):
-```typescript
-const WS_URL = "ws://192.168.1.XXX:8000/ws";  // Replace XXX with your IP
+### 2.3 Create configuration file
+
+Copy the template configuration:
+```bash
+cp config.ts.template config.ts
 ```
 
-### 2.3 Start the Expo app
+Then edit `config.ts` and update the `SERVER_IP` with your computer's local IP address.
+
+**To find your IP:**
+- **macOS/Linux**: `ipconfig getifaddr en0` or `ifconfig`
+- **Windows**: `ipconfig` (look for IPv4 Address)
+
+Example `config.ts`:
+```typescript
+export const SERVER_IP = "192.168.1.100";  // Your actual IP here
+export const SERVER_PORT = 8000;
+export const WS_URL = `ws://${SERVER_IP}:${SERVER_PORT}/ws`;
+```
+
+**Note**: For testing on web browser or iOS simulator, you can use `"localhost"` instead.
+
+### 2.4 Start the Expo app
 ```bash
 npx expo start
 ```
 
-### 2.4 Open on device
+### 2.5 Open on device
 - **iOS**: Scan QR code with Camera app
 - **Android**: Scan QR code with Expo Go app
 

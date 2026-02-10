@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-
-// Backend WebSocket URL - update with your server address
-const WS_URL = "ws://10.241.140.42:8000/ws"; // Change to your backend URL
+import { WS_URL } from "../config";
 
 export type Landmark = {
   x: number;
