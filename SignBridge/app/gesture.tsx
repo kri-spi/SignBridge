@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
-import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { router } from "expo-router";
+import Svg, { Circle, Line } from "react-native-svg";
 
 import { useGestureText } from "../contexts/gesture-text";
 import { useSignRecognition } from "../hooks/useSignRecognition";
@@ -12,6 +13,22 @@ const KEYWORDS = [
   "PLEASE", "SORRY", "STOP", "WHERE", "WATER"
 ];
 
+// MediaPipe hand landmark connections for drawing skeleton
+const HAND_CONNECTIONS: [number, number][] = [
+  // Thumb
+  [0, 1], [1, 2], [2, 3], [3, 4],
+  // Index finger
+  [0, 5], [5, 6], [6, 7], [7, 8],
+  // Middle finger
+  [0, 9], [9, 10], [10, 11], [11, 12],
+  // Ring finger
+  [0, 13], [13, 14], [14, 15], [15, 16],
+  // Pinky
+  [0, 17], [17, 18], [18, 19], [19, 20],
+  // Palm
+  [5, 9], [9, 13], [13, 17]
+];
+
 export default function GestureScreen() {
   const { appendText } = useGestureText();
   const [permission, requestPermission] = useCameraPermissions();
@@ -19,13 +36,14 @@ export default function GestureScreen() {
   const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastCommittedRef = useRef<string>("");
 
-  const { status, currentSign, confidence, stabilityMs, sendFrame } = useSignRecognition();
+  const { status, currentSign, confidence, stabilityMs, landmarks, sendFrame } = useSignRecognition();
 
   const [isCapturing, setIsCapturing] = useState(false);
+  const isMountedRef = useRef(true);
 
   // Capture frames at 5-8 fps (every 150-200ms)
   const captureFrame = async () => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || !isMountedRef.current) return;
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -34,12 +52,15 @@ export default function GestureScreen() {
         skipProcessing: true,
       });
 
-      if (photo?.base64) {
+      if (photo?.base64 && isMountedRef.current) {
         // Send to backend
         sendFrame(photo.base64, photo.width, photo.height);
       }
     } catch (error) {
-      console.error("Failed to capture frame:", error);
+      // Silently ignore camera unmount errors during cleanup
+      if (error instanceof Error && !error.message?.includes("unmounted")) {
+        console.error("Failed to capture frame:", error);
+      }
     }
   };
 
@@ -57,9 +78,18 @@ export default function GestureScreen() {
     return () => {
       if (frameIntervalRef.current) {
         clearInterval(frameIntervalRef.current);
+        frameIntervalRef.current = null;
       }
     };
-  }, [isCapturing, status]);
+  }, [isCapturing, status, captureFrame]);
+
+  // Track component mount state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Handle committed predictions
   useEffect(() => {
@@ -72,7 +102,7 @@ export default function GestureScreen() {
         lastCommittedRef.current = "";
       }, 1000);
     }
-  }, [currentSign, confidence]);
+  }, [currentSign, confidence, appendText]);
 
   const toggleCapture = () => {
     setIsCapturing(!isCapturing);
@@ -122,6 +152,40 @@ export default function GestureScreen() {
             style={styles.camera}
             facing="front"
           />
+          
+          {/* Hand landmarks visualization */}
+          {landmarks.length > 0 && (
+            <Svg 
+              style={StyleSheet.absoluteFill} 
+              viewBox="0 0 1 1"
+              preserveAspectRatio="xMidYMid slice"
+            >
+              {/* Hand connections */}
+              {HAND_CONNECTIONS.map(([start, end], idx) => (
+                <Line
+                  key={`line-${idx}`}
+                  x1={landmarks[start].y}
+                  y1={1 - landmarks[start].x}
+                  x2={landmarks[end].y}
+                  y2={1 - landmarks[end].x}
+                  stroke="#3b82f6"
+                  strokeWidth="0.002"
+                  opacity={0.8}
+                />
+              ))}
+              {/* Landmarks */}
+              {landmarks.map((landmark, idx) => (
+                <Circle
+                  key={`point-${idx}`}
+                  cx={landmark.y}
+                  cy={1 - landmark.x}
+                  r="0.005"
+                  fill={idx === 0 ? "#ef4444" : idx === 4 || idx === 8 || idx === 12 || idx === 16 || idx === 20 ? "#10b981" : "#3b82f6"}
+                  opacity={0.9}
+                />
+              ))}
+            </Svg>
+          )}
           
           {/* Overlay with current prediction */}
           <View style={styles.overlay}>

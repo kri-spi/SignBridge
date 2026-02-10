@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Speech from "expo-speech";
-import { useRouter } from "expo-router";
 
 import { useGestureText } from "../contexts/gesture-text";
+import GestureCamera from "../components/gesture-camera";
 
 export default function Index() {
   const [inputMode, setInputMode] = useState<"speech" | "text" | "gesture">(
@@ -11,7 +11,6 @@ export default function Index() {
   );
   const { text, setText } = useGestureText();
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const router = useRouter();
 
   const handleSpeak = () => {
     const value = text.trim();
@@ -87,10 +86,7 @@ export default function Index() {
                   styles.inputModeButton,
                   inputMode === "gesture" && styles.inputModeButtonActive,
                 ]}
-                onPress={() => {
-                  setInputMode("gesture");
-                  router.push("/gesture");
-                }}
+                onPress={() => setInputMode("gesture")}
               >
                 <Text
                   style={[
@@ -104,7 +100,9 @@ export default function Index() {
             </View>
           </View>
 
-          {inputMode !== "speech" && (
+          {inputMode === "gesture" ? (
+            <GestureCamera />
+          ) : inputMode !== "speech" ? (
             <View style={styles.textInputCard}>
               <Text style={styles.textInputLabel}>
                 {inputMode === "gesture" ? "Gesture output" : "Type to speak"}
@@ -135,29 +133,23 @@ export default function Index() {
                   </Text>
                 </Pressable>
               </View>
-              {inputMode === "gesture" && (
-                <Pressable
-                  style={styles.gestureShortcut}
-                  onPress={() => router.push("/gesture")}
-                >
-                  <Text style={styles.gestureShortcutText}>Open gesture camera</Text>
-                </Pressable>
-              )}
+            </View>
+          ) : null}
+
+          {inputMode !== "gesture" && (
+            <View style={styles.controls}>
+              <View style={styles.controlRow}>
+                <ControlButton label="Mute" icon="MIC" />
+                <ControlButton label="Keypad" icon="KEY" />
+                <ControlButton label="Speaker" icon="SPK" />
+              </View>
+              <View style={styles.controlRow}>
+                <ControlButton label="Add" icon="ADD" />
+                <ControlButton label="FaceTime" icon="VID" />
+                <ControlButton label="Contacts" icon="CNT" />
+              </View>
             </View>
           )}
-
-          <View style={styles.controls}>
-            <View style={styles.controlRow}>
-              <ControlButton label="Mute" icon="MIC" />
-              <ControlButton label="Keypad" icon="KEY" />
-              <ControlButton label="Speaker" icon="SPK" />
-            </View>
-            <View style={styles.controlRow}>
-              <ControlButton label="Add" icon="ADD" />
-              <ControlButton label="FaceTime" icon="VID" />
-              <ControlButton label="Contacts" icon="CNT" />
-            </View>
-          </View>
 
           <Pressable style={styles.endCallButton}>
             <Text style={styles.endCallText}>End Call</Text>
