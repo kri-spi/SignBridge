@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router } from "expo-router";
@@ -42,7 +42,7 @@ export default function GestureScreen() {
   const isMountedRef = useRef(true);
 
   // Capture frames at 5-8 fps (every 150-200ms)
-  const captureFrame = async () => {
+  const captureFrame = useCallback(async () => {
     if (!cameraRef.current || !isMountedRef.current) return;
 
     try {
@@ -62,7 +62,7 @@ export default function GestureScreen() {
         console.error("Failed to capture frame:", error);
       }
     }
-  };
+  }, [sendFrame]);
 
   // Start/stop frame capture
   useEffect(() => {

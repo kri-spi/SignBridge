@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context"; // Updated import
 import * as Speech from "expo-speech";
 
 import { useGestureText } from "../contexts/gesture-text";
 import GestureCamera from "../components/gesture-camera";
+import DebugOverlay from "../components/DebugOverlay";
+
+type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
 export default function Index() {
   const [inputMode, setInputMode] = useState<"speech" | "text" | "gesture">(
@@ -11,6 +15,8 @@ export default function Index() {
   );
   const { text, setText } = useGestureText();
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [wsStatus, setWsStatus] = useState<ConnectionStatus>("disconnected");
+  const [debugMode, setDebugMode] = useState(false);
 
   const handleSpeak = () => {
     const value = text.trim();
@@ -21,34 +27,97 @@ export default function Index() {
     setIsSpeaking(true);
     Speech.speak(value, {
       onDone: () => setIsSpeaking(false),
-      onStopped: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
     });
   };
 
+  const toggleDebugMode = () => {
+    setDebugMode((prev: boolean) => !prev);
+  };
+
+  const isGestureMode = inputMode === "gesture";
+  const statusColor =
+    wsStatus === "connected"
+      ? "#22c55e"
+      : wsStatus === "connecting"
+        ? "#f59e0b"
+        : wsStatus === "error"
+          ? "#ef4444"
+          : "#6b7280";
+
+
   return (
-    <View style={styles.stage}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.deviceFrame}>
-        <SafeAreaView style={styles.screen}>
+        <View style={[styles.screen, isGestureMode && styles.screenGestureMode]}>
           <View style={styles.dynamicIsland} />
+          <View style={[styles.statusIcon, { backgroundColor: statusColor }]}>
+            <Text style={styles.statusIconText}>●</Text>
+          </View>
           <View style={styles.backgroundGlowTop} />
           <View style={styles.backgroundGlowBottom} />
 
-          <View style={styles.header}>
-            <Text style={styles.callerName}>Morgan Lee</Text>
-            <Text style={styles.callStatus}>Call in progress</Text>
-            <Text style={styles.callTime}>04:28</Text>
-          </View>
-
-          <View style={styles.avatarWrap}>
-            <View style={styles.avatarInner}>
-              <Text style={styles.avatarInitials}>ML</Text>
+          {isGestureMode ? (
+            // Gesture mode: split screen layout
+            <View style={styles.gestureModeSplit}>
+              <View style={styles.gestureTopBar}>
+                <Pressable
+                  style={styles.gestureBackButton}
+                  onPress={() => setInputMode("speech")}
+                >
+                  <Text style={styles.gestureBackText}>← Back to call</Text>
+                </Pressable>
+              </View>
+              {/* Camera half */}
+              <View style={styles.gestureCameraContainer}>
+                {debugMode && (
+                  <Text style={styles.debugSectionLabel}>Camera (Top 50%)</Text>
+                )}
+                <GestureCamera onStatusChange={setWsStatus} />
+              </View>
+              {debugMode && <View style={styles.debugDivider} />}
+              {/* Text detection half */}
+              <View style={[styles.gestureTextContainer, debugMode && styles.debugBorder]}>
+                {debugMode && (
+                  <Text style={styles.debugSectionLabel}>Detected Text (Bottom 50%)</Text>
+                )}
+                <Text style={styles.gestureTextLabel}>Detected Text</Text>
+                <View style={styles.gestureTextBox}>
+                  <Text style={styles.gestureTextContent}>
+                    {text || "Waiting for gestures..."}
+                  </Text>
+                </View>
+                <Pressable
+                  style={[
+                    styles.speakButton,
+                    styles.gestureSendButton,
+                    (!text.trim() || isSpeaking) && styles.gestureSendButtonDisabled,
+                  ]}
+                  onPress={handleSpeak}
+                >
+                  <Text style={styles.speakButtonText}>
+                    {isSpeaking ? "Speaking" : "🔊 Send"}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
+          ) : (
+            // Normal mode: call interface
+            <>
+              <View style={styles.header}>
+                <Text style={styles.callerName}>Morgan Lee</Text>
+                <Text style={styles.callStatus}>Call in progress</Text>
+                <Text style={styles.callTime}>04:28</Text>
+              </View>
 
-          <View style={styles.inputModeCard}>
-            <Text style={styles.inputModeTitle}>Input mode</Text>
-            <View style={styles.inputModeRow}>
+              <View style={styles.avatarWrap}>
+                <View style={styles.avatarInner}>
+                  <Text style={styles.avatarInitials}>ML</Text>
+                </View>
+              </View>
+
+              <DebugBox label="inputModeCard" style={styles.inputModeCard} debugMode={debugMode}>
+                <Text style={styles.inputModeTitle}>Input mode</Text>
+                <View style={styles.inputModeRow}>
               <Pressable
                 style={[
                   styles.inputModeButton,
@@ -56,6 +125,7 @@ export default function Index() {
                 ]}
                 onPress={() => setInputMode("speech")}
               >
+                <Text style={styles.inputModeIcon}>🎤</Text>
                 <Text
                   style={[
                     styles.inputModeLabel,
@@ -72,49 +142,37 @@ export default function Index() {
                 ]}
                 onPress={() => setInputMode("text")}
               >
-                <Text
-                  style={[
-                    styles.inputModeLabel,
-                    inputMode === "text" && styles.inputModeLabelActive,
-                  ]}
-                >
+                  <Text style={styles.inputModeIcon}>🔤</Text>
+                  <Text
+                    style={[
+                      styles.inputModeLabel,
+                      inputMode === "text" && styles.inputModeLabelActive,
+                    ]}
+                  >
                   Text
                 </Text>
               </Pressable>
-              <Pressable
-                style={[
-                  styles.inputModeButton,
-                  inputMode === "gesture" && styles.inputModeButtonActive,
-                ]}
+                   <Pressable
+                     style={styles.inputModeButton}
                 onPress={() => setInputMode("gesture")}
               >
-                <Text
-                  style={[
-                    styles.inputModeLabel,
-                    inputMode === "gesture" && styles.inputModeLabelActive,
-                  ]}
-                >
+                <Text style={styles.inputModeIcon}>👋</Text>
+                <Text style={styles.inputModeLabel}>
                   Gesture
                 </Text>
               </Pressable>
             </View>
-          </View>
+              </DebugBox>
 
-          {inputMode === "gesture" ? (
-            <GestureCamera />
-          ) : inputMode !== "speech" ? (
-            <View style={styles.textInputCard}>
+              {inputMode === "text" ? (
+                <DebugBox label="textInputCard" style={styles.textInputCard} debugMode={debugMode}>
               <Text style={styles.textInputLabel}>
-                {inputMode === "gesture" ? "Gesture output" : "Type to speak"}
+                Type to speak
               </Text>
               <View style={styles.textInputRow}>
                 <TextInput
                   style={styles.textInputField}
-                  placeholder={
-                    inputMode === "gesture"
-                      ? "Waiting for gestures"
-                      : "Enter message"
-                  }
+                  placeholder="Enter message"
                   placeholderTextColor="#667085"
                   value={text}
                   onChangeText={setText}
@@ -133,42 +191,50 @@ export default function Index() {
                   </Text>
                 </Pressable>
               </View>
-            </View>
-          ) : null}
+              </DebugBox>
+              ) : null}
 
-          {inputMode !== "gesture" && (
-            <View style={styles.controls}>
-              <View style={styles.controlRow}>
-                <ControlButton label="Mute" icon="MIC" />
-                <ControlButton label="Keypad" icon="KEY" />
-                <ControlButton label="Speaker" icon="SPK" />
-              </View>
-              <View style={styles.controlRow}>
-                <ControlButton label="Add" icon="ADD" />
-                <ControlButton label="FaceTime" icon="VID" />
-                <ControlButton label="Contacts" icon="CNT" />
-              </View>
-            </View>
+              <DebugBox label="controls" style={styles.controls} debugMode={debugMode}>
+                  <View style={styles.controlRow}>
+                    <ControlButton label="Mute" icon="🔇" debugMode={debugMode} />
+                    <ControlButton label="Keypad" icon="⌨️" debugMode={debugMode} />
+                    <ControlButton label="Speaker" icon="🔊" debugMode={debugMode} />
+                  </View>
+                  <View style={styles.controlRow}>
+                    <ControlButton label="Add" icon="➕" debugMode={debugMode} />
+                    <ControlButton label="FaceTime" icon="📱" debugMode={debugMode} />
+                    <ControlButton label="Contacts" icon="📋" debugMode={debugMode} />
+                  </View>
+                </DebugBox>
+
+              <Pressable style={styles.endCallButton}>
+                <Text style={styles.endCallText}>End Call</Text>
+              </Pressable>
+            </>
           )}
 
-          <Pressable style={styles.endCallButton}>
-            <Text style={styles.endCallText}>End Call</Text>
+          {/* Debug overlay */}
+          <DebugOverlay debugMode={debugMode} />
+
+          <Pressable onPress={toggleDebugMode} style={styles.toggleButton}>
+            <Text style={styles.toggleButtonText}>Toggle Debug</Text>
           </Pressable>
-        </SafeAreaView>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 type ControlButtonProps = {
   label: string;
   icon: string;
+  debugMode?: boolean;
 };
 
-function ControlButton({ label, icon }: ControlButtonProps) {
+function ControlButton({ label, icon, debugMode = false }: ControlButtonProps) {
   return (
     <Pressable style={styles.controlButton}>
-      <View style={styles.controlIcon}>
+      <View style={[styles.controlIcon, debugMode && styles.debugBorder]}>
         <Text style={styles.controlIconText}>{icon}</Text>
       </View>
       <Text style={styles.controlLabel}>{label}</Text>
@@ -176,35 +242,44 @@ function ControlButton({ label, icon }: ControlButtonProps) {
   );
 }
 
+type DebugBoxProps = {
+  children: React.ReactNode;
+  label: string;
+  style?: any;
+  debugMode?: boolean;
+};
+
+function DebugBox({ children, label, style, debugMode = false }: DebugBoxProps) {
+  if (!debugMode) return <>{children}</>;
+  return (
+    <View style={[style, styles.debugBorder]}>
+      <Text style={styles.debugLabel}>{label}</Text>
+      {children}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  stage: {
+  container: {
     flex: 1,
     backgroundColor: "#0a0c10",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
   },
   deviceFrame: {
-    width: 320,
-    aspectRatio: 9 / 19.5,
-    borderRadius: 44,
+    flex: 1,
     backgroundColor: "#111317",
-    borderWidth: 2,
-    borderColor: "#1b1f2a",
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 18 },
   },
   screen: {
     flex: 1,
     backgroundColor: "#0b0b0d",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 22,
-    paddingTop: 20,
-    paddingBottom: 26,
+    paddingHorizontal: 32,
+  },
+  screenGestureMode: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    justifyContent: "flex-start",
   },
   dynamicIsland: {
     position: "absolute",
@@ -216,6 +291,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#050506",
     borderWidth: 1,
     borderColor: "#15181f",
+  },
+  statusIcon: {
+    position: "absolute",
+    top: 12,
+    right: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(12, 14, 21, 0.8)",
+    borderWidth: 1,
+    borderColor: "#1f2433",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusIconText: {
+    fontSize: 12,
   },
   backgroundGlowTop: {
     position: "absolute",
@@ -301,7 +392,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "#141824",
     borderRadius: 14,
-    padding: 4,
+    padding: 5,
     borderWidth: 1,
     borderColor: "#232837",
     gap: 6,
@@ -311,6 +402,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "column",
+    gap: 4,
   },
   inputModeButtonActive: {
     backgroundColor: "#2a3247",
@@ -318,6 +412,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 6 },
+  },
+  inputModeIcon: {
+    fontSize: 24,
   },
   inputModeLabel: {
     color: "#9aa1ad",
@@ -367,6 +464,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  gestureSendButton: {
+    position: "absolute",
+    right: 16,
+    bottom: 16,
+    backgroundColor: "#2f7bff",
+  },
+  gestureSendButtonDisabled: {
+    backgroundColor: "#2f7bff",
+    opacity: 0.6,
+  },
   speakButtonDisabled: {
     backgroundColor: "#1f2433",
     opacity: 0.6,
@@ -377,19 +484,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.4,
   },
-  gestureShortcut: {
-    marginTop: 10,
-    paddingVertical: 6,
-    alignSelf: "flex-start",
-  },
-  gestureShortcutText: {
-    color: "#8fc1ff",
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.4,
-  },
   controls: {
-    width: "100%",
+    width: "90%",
     gap: 20,
   },
   controlRow: {
@@ -412,7 +508,7 @@ const styles = StyleSheet.create({
   },
   controlIconText: {
     color: "#d4d7df",
-    fontSize: 14,
+    fontSize: 28,
     fontWeight: "600",
     letterSpacing: 0.6,
   },
@@ -438,5 +534,119 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     letterSpacing: 0.6,
+  },
+  debugBorder: {
+    borderWidth: 2,
+    borderColor: "#ff3b30",
+    borderStyle: "dashed",
+  },
+  debugLabel: {
+    position: "absolute",
+    top: 2,
+    left: 2,
+    fontSize: 10,
+    color: "#ff3b30",
+    backgroundColor: "rgba(255, 59, 48, 0.2)",
+    paddingHorizontal: 4,
+    zIndex: 999,
+  },
+  debugDivider: {
+    height: 2,
+    width: "100%",
+    backgroundColor: "#ff3b30",
+    opacity: 0.6,
+  },
+  debugSectionLabel: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    fontSize: 11,
+    color: "#ff3b30",
+    backgroundColor: "rgba(255, 59, 48, 0.2)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    zIndex: 2,
+  },
+  gestureModeSplit: {
+    flex: 1,
+    flexDirection: "column",
+    width: "100%",
+  },
+  gestureTopBar: {
+    position: "absolute",
+    top: 12,
+    left: 16,
+    zIndex: 2,
+  },
+  gestureBackButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: "#1f2433",
+  },
+  gestureBackText: {
+    color: "#d6d9e1",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+  gestureCameraContainer: {
+    flex: 1,
+    width: "100%",
+    backgroundColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  gestureTextContainer: {
+    flex: 1,
+    width: "100%",
+    backgroundColor: "#0b0b0d",
+    padding: 16,
+    justifyContent: "space-between",
+    alignItems: "center",
+    position: "relative",
+  },
+  gestureTextLabel: {
+    color: "#8f96a3",
+    fontSize: 12,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    marginBottom: 12,
+  },
+  gestureTextBox: {
+    flex: 1,
+    width: "100%",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#232837",
+    backgroundColor: "#141824",
+    padding: 16,
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  gestureTextContent: {
+    color: "#f0f3f8",
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.3,
+  },
+  toggleButton: {
+    position: "absolute",
+    top: 50,
+    right: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: "#2a3247",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1001,
+  },
+  toggleButtonText: {
+    color: "#f0f3f8",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

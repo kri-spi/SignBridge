@@ -5,6 +5,12 @@ import Svg, { Circle, Line } from "react-native-svg";
 
 import { useSignRecognition } from "../hooks/useSignRecognition";
 
+type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
+
+type GestureCameraProps = {
+  onStatusChange?: (status: ConnectionStatus) => void;
+};
+
 // Keywords we're recognizing
 const KEYWORDS = [
   "HELLO", "THANK_YOU", "YES", "NO", "HELP", 
@@ -27,7 +33,7 @@ const HAND_CONNECTIONS: [number, number][] = [
   [5, 9], [9, 13], [13, 17]
 ];
 
-export default function GestureCamera() {
+export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -86,6 +92,17 @@ export default function GestureCamera() {
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    onStatusChange?.(status);
+  }, [status, onStatusChange]);
+
+  // Auto-start capture when permissions are granted
+  useEffect(() => {
+    if (permission?.granted) {
+      setIsCapturing(true);
+    }
+  }, [permission?.granted]);
 
   if (!permission) {
     return (
@@ -163,24 +180,6 @@ export default function GestureCamera() {
           </View>
         </View>
 
-        {/* Start/Stop button overlay */}
-        <View style={styles.controlOverlay}>
-          <Pressable
-            style={[
-              styles.captureButton, 
-              isCapturing && styles.captureButtonActive,
-              status !== "connected" && styles.captureButtonDisabled
-            ]}
-            onPress={() => setIsCapturing(!isCapturing)}
-            disabled={status !== "connected"}
-          >
-            <Text style={styles.captureButtonText}>
-              {status === "connected" 
-                ? isCapturing ? "⏸" : "▶"
-                : "..."}
-            </Text>
-          </Pressable>
-        </View>
       </View>
     </View>
   );
@@ -198,6 +197,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#141824",
     position: "relative",
+  },
+  fallbackTitle: {
+    color: "#f5f7fb",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  fallbackText: {
+    color: "#9aa1ad",
+    fontSize: 12,
+    marginTop: 6,
+    textAlign: "center",
   },
   camera: {
     flex: 1,
@@ -229,45 +239,5 @@ const styles = StyleSheet.create({
     color: "#8fc1ff",
     fontSize: 14,
     fontWeight: "500",
-  },
-  controlOverlay: {
-    position: "absolute",
-    bottom: 12,
-    right: 12,
-  },
-  fallbackTitle: {
-    color: "#f5f7fb",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  fallbackText: {
-    color: "#9aa1ad",
-    fontSize: 12,
-    marginTop: 6,
-    textAlign: "center",
-  },
-  captureButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#3b82f6",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  captureButtonActive: {
-    backgroundColor: "#ef3b2d",
-  },
-  captureButtonDisabled: {
-    backgroundColor: "#1f2433",
-    opacity: 0.5,
-  },
-  captureButtonText: {
-    color: "#f7f9ff",
-    fontSize: 24,
-    fontWeight: "600",
   },
 });
