@@ -41,6 +41,23 @@ export default function GestureScreen() {
   const [isCapturing, setIsCapturing] = useState(false);
   const isMountedRef = useRef(true);
 
+  const statusLabel =
+    status === "connected"
+      ? "Connected"
+      : status === "connecting"
+        ? "Connecting"
+        : status === "error"
+          ? "Error"
+          : "Disconnected";
+  const statusColor =
+    status === "connected"
+      ? "#22c55e"
+      : status === "connecting"
+        ? "#f59e0b"
+        : status === "error"
+          ? "#ef4444"
+          : "#6b7280";
+
   // Capture frames at 5-8 fps (every 150-200ms)
   const captureFrame = useCallback(async () => {
     if (!cameraRef.current || !isMountedRef.current) return;
@@ -144,6 +161,16 @@ export default function GestureScreen() {
           <Text style={styles.subtitle}>
             {status === "connected" ? "Connected to server" : `Status: ${status}`}
           </Text>
+          <View
+            style={[
+              styles.statusPill,
+              styles.statusPillAbsolute,
+              { borderColor: statusColor },
+            ]}
+          >
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            <Text style={styles.statusText}>{statusLabel}</Text>
+          </View>
         </View>
 
         <View style={styles.cameraWrap}>
@@ -276,6 +303,32 @@ const styles = StyleSheet.create({
     color: "#9aa1ad",
     fontSize: 14,
     marginTop: 6,
+  },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(12, 14, 21, 0.85)",
+    borderWidth: 1,
+  },
+  statusPillAbsolute: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    color: "#c6c9d2",
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.3,
   },
   cameraWrap: {
     flex: 1,

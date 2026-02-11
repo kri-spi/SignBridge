@@ -35,6 +35,14 @@ export default function Index() {
   };
 
   const isGestureMode = inputMode === "gesture";
+  const statusLabel =
+    wsStatus === "connected"
+      ? "Connected"
+      : wsStatus === "connecting"
+        ? "Connecting"
+        : wsStatus === "error"
+          ? "Error"
+          : "Disconnected";
   const statusColor =
     wsStatus === "connected"
       ? "#22c55e"
@@ -50,9 +58,6 @@ export default function Index() {
       <View style={styles.deviceFrame}>
         <View style={[styles.screen, isGestureMode && styles.screenGestureMode]}>
           <View style={styles.dynamicIsland} />
-          <View style={[styles.statusIcon, { backgroundColor: statusColor }]}>
-            <Text style={styles.statusIconText}>●</Text>
-          </View>
           <View style={styles.backgroundGlowTop} />
           <View style={styles.backgroundGlowBottom} />
 
@@ -66,6 +71,10 @@ export default function Index() {
                 >
                   <Text style={styles.gestureBackText}>← Back to call</Text>
                 </Pressable>
+                <View style={[styles.statusPill, { borderColor: statusColor }]}>
+                  <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                  <Text style={styles.statusText}>{statusLabel}</Text>
+                </View>
               </View>
               {/* Camera half */}
               <View style={styles.gestureCameraContainer}>
@@ -103,6 +112,10 @@ export default function Index() {
           ) : (
             // Normal mode: call interface
             <>
+              <View style={[styles.statusPill, styles.statusPillAbsolute, { borderColor: statusColor }]}> 
+                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                <Text style={styles.statusText}>{statusLabel}</Text>
+              </View>
               <View style={styles.header}>
                 <Text style={styles.callerName}>Morgan Lee</Text>
                 <Text style={styles.callStatus}>Call in progress</Text>
@@ -292,21 +305,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#15181f",
   },
-  statusIcon: {
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(12, 14, 21, 0.85)",
+    borderWidth: 1,
+  },
+  statusPillAbsolute: {
     position: "absolute",
     top: 12,
     right: 16,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "rgba(12, 14, 21, 0.8)",
-    borderWidth: 1,
-    borderColor: "#1f2433",
-    alignItems: "center",
-    justifyContent: "center",
+    zIndex: 3,
   },
-  statusIconText: {
-    fontSize: 12,
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    color: "#c6c9d2",
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.3,
   },
   backgroundGlowTop: {
     position: "absolute",
@@ -577,6 +601,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     left: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     zIndex: 2,
   },
   gestureBackButton: {

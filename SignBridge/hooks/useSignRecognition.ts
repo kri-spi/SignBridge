@@ -92,12 +92,35 @@ export function useSignRecognition() {
     };
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const ws = wsRef.current;
+      if (!ws) {
+        setStatus((prev) => (prev === "disconnected" ? prev : "disconnected"));
+        return;
+      }
+      if (ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) {
+        setStatus((prev) => (prev === "disconnected" ? prev : "disconnected"));
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const normalizeBase64 = (input: string) => {
+    const stripped = input.includes(",") ? input.split(",")[1] : input;
+    const padding = stripped.length % 4;
+    if (padding === 0) return stripped;
+    return stripped + "=".repeat(4 - padding);
+  };
+
   const sendFrame = useCallback((imageBase64: string, width: number, height: number) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const normalizedBase64 = normalizeBase64(imageBase64);
       const message: FrameMessage = {
         type: "frame",
         ts: Date.now(),
-        image_b64: imageBase64,
+        image_b64: normalizedBase64,
         w: width,
         h: height,
       };

@@ -41,11 +41,12 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
   const { status, currentSign, confidence, landmarks, sendFrame } = useSignRecognition();
 
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const isMountedRef = useRef(true);
 
   // Capture frames at 5-8 fps (every 150-200ms)
   const captureFrame = async () => {
-    if (!cameraRef.current || !isMountedRef.current) return;
+    if (!cameraRef.current || !isMountedRef.current || !isCameraReady) return;
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -68,7 +69,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
 
   // Start/stop frame capture
   useEffect(() => {
-    if (isCapturing && status === "connected") {
+    if (isCapturing && status === "connected" && isCameraReady) {
       frameIntervalRef.current = setInterval(captureFrame, 150); // ~6.6 fps
     } else {
       if (frameIntervalRef.current) {
@@ -83,7 +84,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
         frameIntervalRef.current = null;
       }
     };
-  }, [isCapturing, status, captureFrame]);
+  }, [isCapturing, status, isCameraReady, captureFrame]);
 
   // Track component mount state
   useEffect(() => {
@@ -130,6 +131,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
           ref={cameraRef}
           style={styles.camera}
           facing="front"
+          onCameraReady={() => setIsCameraReady(true)}
         />
         
         {/* Hand landmarks visualization */}
