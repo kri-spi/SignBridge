@@ -97,7 +97,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
   });
 
   const handleCameraReady = useCallback(() => {
-    // Add a short delay to ensure the video stream has real frames
+    // Short delay helps avoid "not enough camera data" early startup
     setTimeout(() => {
       if (isMountedRef.current) {
         setIsCameraReady(true);
@@ -227,7 +227,6 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
             viewBox="0 0 1 1"
             preserveAspectRatio="xMidYMid slice"
           >
-            {/* Hand connections */}
             {HAND_CONNECTIONS.map(([start, end], idx) => (
               <Line
                 key={`line-${idx}`}
@@ -241,7 +240,6 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
               />
             ))}
 
-            {/* Landmarks */}
             {landmarks.map((landmark, idx) => (
               <Circle
                 key={`point-${idx}`}
@@ -297,7 +295,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
 
-  // ✅ NEW
+  // ✅ Sending overlay styles
   sendingWrap: {
     position: "absolute",
     top: 54,
@@ -340,6 +338,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: "center",
   },
+
   camera: {
     flex: 1,
   },

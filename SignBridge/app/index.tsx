@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -6,12 +6,12 @@ import {
   TextInput,
   View,
   Dimensions,
-  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Speech from "expo-speech";
 
 import { useGestureText } from "../contexts/gesture-text";
+import { useAudioTranscript } from "../contexts/audio-transcript";
 import GestureCamera from "../components/gesture-camera";
 import DebugOverlay from "../components/DebugOverlay";
 
@@ -23,7 +23,7 @@ export default function Index() {
   );
   const { text, setText } = useGestureText();
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [wsStatus, setWsStatus] = useState<ConnectionStatus>("disconnected");
+  const [, setWsStatus] = useState<ConnectionStatus>("disconnected");
   const [debugMode] = useState(false);
 
   const handleSpeak = () => {
@@ -38,39 +38,22 @@ export default function Index() {
 
   const isGestureMode = inputMode === "gesture";
 
-  const statusLabel =
-    wsStatus === "connected"
-      ? "Connected"
-      : wsStatus === "connecting"
-        ? "Connecting"
-        : wsStatus === "error"
-          ? "Error"
-          : "Disconnected";
-
-  const statusColor =
-    wsStatus === "connected"
-      ? "#22c55e"
-      : wsStatus === "connecting"
-        ? "#f59e0b"
-        : wsStatus === "error"
-          ? "#ef4444"
-          : "#6b7280";
-
   return (
     <SafeAreaView style={styles.container}>
-      {/* iPhone mock shell */}
       <View style={styles.phoneShell}>
         <View style={styles.phoneBezel}>
           <View style={[styles.screen, isGestureMode && styles.screenGestureMode]}>
             <View style={styles.dynamicIsland} />
-
-            {/* optional glow */}
             <View style={styles.backgroundGlowTop} />
             <View style={styles.backgroundGlowBottom} />
 
+            {/* Audio Overlay */}
+            <AudioPlayOverlayButton />
+            <LiveTranscriptBar />
+
             {isGestureMode ? (
               <View style={styles.gestureModeContainer}>
-                {/* Top layer */}
+                {/* Top */}
                 <View style={styles.gestureTopLayer}>
                   <View style={styles.gestureCallerInfo}>
                     <View style={styles.gestureTopBar}>
@@ -80,19 +63,13 @@ export default function Index() {
                       >
                         <Text style={styles.gestureBackText}>← Back</Text>
                       </Pressable>
-
-                      {/* status pill */}
-                      <View style={[styles.statusPill, { borderColor: statusColor }]}>
-                        <View
-                          style={[styles.statusDot, { backgroundColor: statusColor }]}
-                        />
-                        <Text style={styles.statusText}>{statusLabel}</Text>
-                      </View>
                     </View>
 
                     <View style={styles.gestureHeader}>
                       <Text style={styles.gestureCallerName}>Morgan Lee</Text>
-                      <Text style={styles.gestureCallStatus}>Call in progress</Text>
+                      <Text style={styles.gestureCallStatus}>
+                        Call in progress
+                      </Text>
                       <Text style={styles.gestureCallTime}>04:28</Text>
                     </View>
 
@@ -104,36 +81,21 @@ export default function Index() {
                   </View>
                 </View>
 
-                {/* Bottom layer */}
+                {/* Bottom */}
                 <View style={styles.gestureBottomLayer}>
                   <View style={styles.gestureCameraContainer}>
-                    {debugMode && (
-                      <Text style={styles.debugSectionLabel}>
-                        Camera (Top 50% of bottom layer)
-                      </Text>
-                    )}
                     <GestureCamera onStatusChange={setWsStatus} />
                   </View>
 
-                  {debugMode && <View style={styles.debugDivider} />}
-
-                  <View
-                    style={[
-                      styles.gestureTextContainer,
-                      debugMode && styles.debugBorder,
-                    ]}
-                  >
-                    {debugMode && (
-                      <Text style={styles.debugSectionLabel}>
-                        Detected Text (Bottom 50% of bottom layer)
-                      </Text>
-                    )}
+                  <View style={styles.gestureTextContainer}>
                     <Text style={styles.gestureTextLabel}>Detected Text</Text>
+
                     <View style={styles.gestureTextBox}>
                       <Text style={styles.gestureTextContent}>
                         {text || "Waiting for gestures..."}
                       </Text>
                     </View>
+
                     <Pressable
                       style={[
                         styles.speakButton,
@@ -152,132 +114,92 @@ export default function Index() {
               </View>
             ) : (
               <>
-                {/* status pill (normal mode) */}
-                <View
-                  style={[
-                    styles.statusPill,
-                    styles.statusPillAbsolute,
-                    { borderColor: statusColor },
-                  ]}
-                >
-                  <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-                  <Text style={styles.statusText}>{statusLabel}</Text>
+                <View style={styles.header}>
+                  <Text style={styles.callerName}>Morgan Lee</Text>
+                  <Text style={styles.callStatus}>Call in progress</Text>
+                  <Text style={styles.callTime}>04:28</Text>
                 </View>
 
-                <ScrollView
-                  style={styles.normalScroll}
-                  contentContainerStyle={styles.normalScrollContent}
-                  showsVerticalScrollIndicator={false}
-                  bounces={false}
-                >
-                  <View style={styles.header}>
-                    <Text style={styles.callerName}>Morgan Lee</Text>
-                    <Text style={styles.callStatus}>Call in progress</Text>
-                    <Text style={styles.callTime}>04:28</Text>
+                <View style={styles.avatarWrap}>
+                  <View style={styles.avatarInner}>
+                    <Text style={styles.avatarInitials}>ML</Text>
                   </View>
+                </View>
 
-                  <View style={styles.avatarWrap}>
-                    <View style={styles.avatarInner}>
-                      <Text style={styles.avatarInitials}>ML</Text>
-                    </View>
+                <View style={styles.inputModeCard}>
+                  <Text style={styles.inputModeTitle}>Input mode</Text>
+
+                  <View style={styles.inputModeRow}>
+                    <Pressable
+                      style={[
+                        styles.inputModeButton,
+                        inputMode === "speech" &&
+                          styles.inputModeButtonActive,
+                      ]}
+                      onPress={() => setInputMode("speech")}
+                    >
+                      <Text style={styles.inputModeIcon}>🎤</Text>
+                      <Text style={styles.inputModeLabel}>Speech</Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={[
+                        styles.inputModeButton,
+                        inputMode === "text" &&
+                          styles.inputModeButtonActive,
+                      ]}
+                      onPress={() => setInputMode("text")}
+                    >
+                      <Text style={styles.inputModeIcon}>🔤</Text>
+                      <Text style={styles.inputModeLabel}>Text</Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={styles.inputModeButton}
+                      onPress={() => setInputMode("gesture")}
+                    >
+                      <Text style={styles.inputModeIcon}>👋</Text>
+                      <Text style={styles.inputModeLabel}>Gesture</Text>
+                    </Pressable>
                   </View>
+                </View>
 
-                  {/* Input mode menu */}
-                  <View style={styles.inputModeCard}>
-                    <Text style={styles.inputModeTitle}>Input mode</Text>
-                    <View style={styles.inputModeRow}>
+                {inputMode === "text" && (
+                  <View style={styles.textInputCard}>
+                    <Text style={styles.textInputLabel}>Type to speak</Text>
+
+                    <View style={styles.textInputRow}>
+                      <TextInput
+                        style={styles.textInputField}
+                        placeholder="Enter message"
+                        placeholderTextColor="#667085"
+                        value={text}
+                        onChangeText={setText}
+                        returnKeyType="done"
+                        onSubmitEditing={handleSpeak}
+                      />
+
                       <Pressable
                         style={[
-                          styles.inputModeButton,
-                          inputMode === "speech" && styles.inputModeButtonActive,
+                          styles.speakButton,
+                          (!text.trim() || isSpeaking) &&
+                            styles.speakButtonDisabled,
                         ]}
-                        onPress={() => setInputMode("speech")}
+                        onPress={handleSpeak}
                       >
-                        <Text style={styles.inputModeIcon}>🎤</Text>
-                        <Text
-                          style={[
-                            styles.inputModeLabel,
-                            inputMode === "speech" && styles.inputModeLabelActive,
-                          ]}
-                        >
-                          Speech
+                        <Text style={styles.speakButtonText}>
+                          {isSpeaking ? "Speaking" : "Send"}
                         </Text>
-                      </Pressable>
-
-                      <Pressable
-                        style={[
-                          styles.inputModeButton,
-                          inputMode === "text" && styles.inputModeButtonActive,
-                        ]}
-                        onPress={() => setInputMode("text")}
-                      >
-                        <Text style={styles.inputModeIcon}>🔤</Text>
-                        <Text
-                          style={[
-                            styles.inputModeLabel,
-                            inputMode === "text" && styles.inputModeLabelActive,
-                          ]}
-                        >
-                          Text
-                        </Text>
-                      </Pressable>
-
-                      <Pressable style={styles.inputModeButton} onPress={() => setInputMode("gesture")}>
-                        <Text style={styles.inputModeIcon}>👋</Text>
-                        <Text style={styles.inputModeLabel}>Gesture</Text>
                       </Pressable>
                     </View>
                   </View>
+                )}
 
-                  {inputMode === "text" ? (
-                    <View style={styles.textInputCard}>
-                      <Text style={styles.textInputLabel}>Type to speak</Text>
-                      <View style={styles.textInputRow}>
-                        <TextInput
-                          style={styles.textInputField}
-                          placeholder="Enter message"
-                          placeholderTextColor="#667085"
-                          value={text}
-                          onChangeText={setText}
-                          returnKeyType="done"
-                          onSubmitEditing={handleSpeak}
-                        />
-                        <Pressable
-                          style={[
-                            styles.speakButton,
-                            (!text.trim() || isSpeaking) && styles.speakButtonDisabled,
-                          ]}
-                          onPress={handleSpeak}
-                        >
-                          <Text style={styles.speakButtonText}>
-                            {isSpeaking ? "Speaking" : "Send"}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  ) : null}
-
-                  {/* Call controls */}
-                  <View style={styles.controls}>
-                    <View style={styles.controlRow}>
-                      <ControlButton label="Mute" icon="🔇" />
-                      <ControlButton label="Keypad" icon="⌨️" />
-                      <ControlButton label="Speaker" icon="🔊" />
-                    </View>
-                    <View style={styles.controlRow}>
-                      <ControlButton label="Add" icon="➕" />
-                      <ControlButton label="FaceTime" icon="📱" />
-                      <ControlButton label="Contacts" icon="📋" />
-                    </View>
-                  </View>
-
-                  <Pressable style={styles.endCallButton}>
-                    <Text style={styles.endCallText}>End Call</Text>
-                  </Pressable>
-                </ScrollView>
+                <Pressable style={styles.endCallButton}>
+                  <Text style={styles.endCallText}>End Call</Text>
+                </Pressable>
               </>
             )}
-
 
             <DebugOverlay debugMode={debugMode} />
           </View>
@@ -287,28 +209,31 @@ export default function Index() {
   );
 }
 
-type ControlButtonProps = {
-  label: string;
-  icon: string;
-};
-
-function ControlButton({ label, icon }: ControlButtonProps) {
+function AudioPlayOverlayButton() {
+  const { isPlaying, togglePlay } = useAudioTranscript();
   return (
-    <Pressable style={styles.controlButton}>
-      <View style={styles.controlIcon}>
-        <Text style={styles.controlIconText}>{icon}</Text>
-      </View>
-      <Text style={styles.controlLabel}>{label}</Text>
+    <Pressable style={styles.audioPlayButton} onPress={togglePlay}>
+      <Text style={styles.audioPlayButtonText}>
+        {isPlaying ? "⏸" : "▶️"}
+      </Text>
     </Pressable>
   );
 }
 
+function LiveTranscriptBar() {
+  const { liveText } = useAudioTranscript();
+  return (
+    <View style={styles.transcriptBar}>
+      <Text style={styles.transcriptLabel}>Audio transcript</Text>
+      <Text style={styles.transcriptText} numberOfLines={2}>
+        {liveText || "—"}
+      </Text>
+    </View>
+  );
+}
+
 const { height: screenHeight } = Dimensions.get("window");
-
-// Keep realistic iPhone ratio (390x844 ≈ 0.46 width/height ratio)
 const PHONE_RATIO = 390 / 844;
-
-// Make phone 90% of screen height max
 const phoneHeight = Math.min(screenHeight * 0.9, 780);
 const phoneWidth = phoneHeight * PHONE_RATIO;
 
@@ -808,4 +733,51 @@ screen: {
     backgroundColor: "#2f7bff",
     opacity: 0.6,
   },
+
+  audioPlayButton: {
+    position: "absolute",
+    top: 12,
+    left: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "rgba(31, 36, 51, 0.95)",
+    borderWidth: 1,
+    borderColor: "#2b303c",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2000,
+  },
+  audioPlayButtonText: {
+    color: "#f0f3f8",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  transcriptBar: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 14,
+    minHeight: 64,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#232837",
+    backgroundColor: "rgba(12, 14, 21, 0.92)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    zIndex: 1500,
+  },
+  transcriptLabel: {
+    color: "#8f96a3",
+    fontSize: 11,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  transcriptText: {
+    color: "#f0f3f8",
+    fontSize: 14,
+    lineHeight: 20,
+  },
 });
+
