@@ -49,9 +49,9 @@ export default function Index() {
       <View style={styles.deviceFrame}>
         <View style={[styles.screen, isGestureMode && styles.screenGestureMode]}>
           <View style={styles.dynamicIsland} />
-          <View style={[styles.statusIcon, { backgroundColor: statusColor }]}>
+          {/* <View style={[styles.statusIcon, { backgroundColor: statusColor }]}>
             <Text style={styles.statusIconText}>●</Text>
-          </View>
+          </View> */}
           <View style={styles.backgroundGlowTop} />
           <View style={styles.backgroundGlowBottom} />
 
@@ -235,12 +235,11 @@ export default function Index() {
             </>
           )}
 
-          {/* Debug overlay */}
+          {/* DEBUG MODE HERE */}
           <DebugOverlay debugMode={debugMode} />
-
-          <Pressable onPress={toggleDebugMode} style={styles.toggleButton}>
+          {/* <Pressable onPress={toggleDebugMode} style={styles.toggleButton}> 
             <Text style={styles.toggleButtonText}>Toggle Debug</Text>
-          </Pressable>
+          </Pressable> */}
         </View>
       </View>
     </SafeAreaView>
