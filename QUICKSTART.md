@@ -4,7 +4,7 @@
 
 ### 1.1 Navigate to backend directory
 ```bash
-cd backend
+cd signbridge-backend
 ```
 
 ### 1.2 Create virtual environment
@@ -26,7 +26,7 @@ python server.py
 You should see:
 ```
 Starting SignBridge backend server...
-Keywords: ['HELLO', 'THANK_YOU', 'YES', 'NO', 'HELP', 'PLEASE', 'SORRY', 'STOP', 'WHERE', 'WATER', 'NONE']
+Keywords: ['HELLO','YES','STOP']
 INFO:     Uvicorn running on http://0.0.0.0:8000
 ```
 
@@ -38,7 +38,7 @@ The WebSocket server is now running at `ws://localhost:8000/ws`
 
 ### 2.1 Navigate to the app directory
 ```bash
-cd ../SignBridge  # From backend directory
+cd ../signbridge-frontend  # From signbridge-backend
 ```
 
 ### 2.2 Install dependencies
@@ -61,7 +61,7 @@ Then edit `config.ts` and update the `SERVER_IP` with your computer's local IP a
 
 Example `config.ts`:
 ```typescript
-export const SERVER_IP = "192.168.1.100";  // Your actual IP here
+export const SERVER_IP = "123.456.7.890";  // Your actual IP here
 export const SERVER_PORT = 8000;
 export const WS_URL = `ws://${SERVER_IP}:${SERVER_PORT}/ws`;
 ```
@@ -154,17 +154,10 @@ npx expo start
 
 ## Keywords
 
-Current keyword set (10 signs + NONE):
+Current keyword set (3 signs + NONE):
 - HELLO
-- THANK_YOU
 - YES
-- NO
-- HELP
-- PLEASE
-- SORRY
 - STOP
-- WHERE
-- WATER
 
 ---
 
@@ -201,16 +194,3 @@ Current keyword set (10 signs + NONE):
 - **Distance**: Keep hand 1-2 feet from camera
 - **Stability**: Hold gestures steady for 400ms to commit
 - **Cooldown**: Wait 1 second between different signs
-
----
-
-## Next: Data Collection
-
-To improve accuracy, you'll need to collect training data:
-
-1. Record 20-30 examples per keyword
-2. Extract features for each frame
-3. Compute prototype (mean feature vector) per keyword
-4. Use cosine similarity or L2 distance for classification
-
-The current classifier uses simple heuristics - replace with real prototypes!
