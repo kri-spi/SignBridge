@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Svg, { Circle, Line } from "react-native-svg";
 
@@ -12,10 +12,6 @@ type GestureCameraProps = {
 };
 
 // Keywords we're recognizing
-const KEYWORDS = [
-  "HELLO", "THANK_YOU", "YES", "NO", "HELP", 
-  "PLEASE", "SORRY", "STOP", "WHERE", "WATER"
-];
 
 // MediaPipe hand landmark connections for drawing skeleton
 const HAND_CONNECTIONS: [number, number][] = [
@@ -34,7 +30,7 @@ const HAND_CONNECTIONS: [number, number][] = [
 ];
 
 export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -44,6 +40,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
   const isMountedRef = useRef(true);
 
   // Capture frames at 5-8 fps (every 150-200ms)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const captureFrame = async () => {
     if (!cameraRef.current || !isMountedRef.current) return;
 
