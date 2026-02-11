@@ -668,7 +668,6 @@ phoneShell: {
   },
   gestureTopLayer: {
     flex: 0.25,
-    flex: 0.25,
     backgroundColor: "#0b0b0d",
     borderBottomWidth: 1,
     borderBottomColor: "#232837",
@@ -797,53 +796,6 @@ phoneShell: {
     opacity: 0.6,
   },
 
-  audioPlayButton: {
-    position: "absolute",
-    top: 12,
-    left: 16,
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: "rgba(31, 36, 51, 0.95)",
-    borderWidth: 1,
-    borderColor: "#2b303c",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2000,
-  },
-  audioPlayButtonText: {
-    color: "#f0f3f8",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  transcriptBar: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    bottom: 14,
-    minHeight: 64,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#232837",
-    backgroundColor: "rgba(12, 14, 21, 0.92)",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    zIndex: 1500,
-  },
-  transcriptLabel: {
-    color: "#8f96a3",
-    fontSize: 11,
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
-    marginBottom: 4,
-  },
-  transcriptText: {
-    color: "#f0f3f8",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-
-  // ✅ Audio overlay styles
   audioPlayButton: {
     position: "absolute",
     top: 12,
