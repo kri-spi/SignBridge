@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { StyleSheet, Text, View, Animated, Easing } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Svg, { Circle, Line } from "react-native-svg";
 
@@ -11,22 +11,37 @@ type GestureCameraProps = {
   onStatusChange?: (status: ConnectionStatus) => void;
 };
 
-// Keywords we're recognizing
-
 // MediaPipe hand landmark connections for drawing skeleton
 const HAND_CONNECTIONS: [number, number][] = [
   // Thumb
-  [0, 1], [1, 2], [2, 3], [3, 4],
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 4],
   // Index finger
-  [0, 5], [5, 6], [6, 7], [7, 8],
+  [0, 5],
+  [5, 6],
+  [6, 7],
+  [7, 8],
   // Middle finger
-  [0, 9], [9, 10], [10, 11], [11, 12],
+  [0, 9],
+  [9, 10],
+  [10, 11],
+  [11, 12],
   // Ring finger
-  [0, 13], [13, 14], [14, 15], [15, 16],
+  [0, 13],
+  [13, 14],
+  [14, 15],
+  [15, 16],
   // Pinky
-  [0, 17], [17, 18], [18, 19], [19, 20],
+  [0, 17],
+  [17, 18],
+  [18, 19],
+  [19, 20],
   // Palm
-  [5, 9], [9, 13], [13, 17]
+  [5, 9],
+  [9, 13],
+  [13, 17],
 ];
 
 export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
@@ -34,15 +49,65 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
   const cameraRef = useRef<CameraView>(null);
   const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { status, currentSign, confidence, landmarks, sendFrame } = useSignRecognition();
+  const { status, currentSign, confidence, landmarks, sendFrame, isSending } =
+    useSignRecognition();
 
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const isMountedRef = useRef(true);
 
-  // Capture frames at 5-8 fps (every 150-200ms)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const captureFrame = async () => {
-    if (!cameraRef.current || !isMountedRef.current) return;
+  // ✅ Sending animation
+  const sendingAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+
+    if (isSending) {
+      sendingAnim.setValue(0);
+      loop = Animated.loop(
+        Animated.timing(sendingAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        })
+      );
+      loop.start();
+    } else {
+      sendingAnim.stopAnimation();
+      sendingAnim.setValue(0);
+    }
+
+    return () => {
+      loop?.stop();
+    };
+  }, [isSending, sendingAnim]);
+
+  const dot1 = sendingAnim.interpolate({
+    inputRange: [0, 0.33, 1],
+    outputRange: [0.2, 1, 0.2],
+  });
+  const dot2 = sendingAnim.interpolate({
+    inputRange: [0, 0.66, 1],
+    outputRange: [0.2, 1, 0.2],
+  });
+  const dot3 = sendingAnim.interpolate({
+    inputRange: [0, 0.99, 1],
+    outputRange: [0.2, 1, 0.2],
+  });
+
+  const handleCameraReady = useCallback(() => {
+    // Short delay helps avoid "not enough camera data" early startup
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        setIsCameraReady(true);
+      }
+    }, 500);
+  }, []);
+
+  // Capture frames at ~6–7 fps
+  const captureFrame = useCallback(async () => {
+    if (!cameraRef.current || !isMountedRef.current || !isCameraReady) return;
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -52,20 +117,27 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
       });
 
       if (photo?.base64 && isMountedRef.current) {
-        // Send to backend
         sendFrame(photo.base64, photo.width, photo.height);
       }
     } catch (error) {
+      // Common during camera startup: skip quietly
+      if (
+        error instanceof Error &&
+        error.message?.toLowerCase().includes("enough camera data")
+      ) {
+        return;
+      }
+
       // Silently ignore camera unmount errors during cleanup
       if (error instanceof Error && !error.message?.includes("unmounted")) {
         console.error("Failed to capture frame:", error);
       }
     }
-  };
+  }, [isCameraReady, sendFrame]);
 
   // Start/stop frame capture
   useEffect(() => {
-    if (isCapturing && status === "connected") {
+    if (isCapturing && status === "connected" && isCameraReady) {
       frameIntervalRef.current = setInterval(captureFrame, 150); // ~6.6 fps
     } else {
       if (frameIntervalRef.current) {
@@ -80,7 +152,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
         frameIntervalRef.current = null;
       }
     };
-  }, [isCapturing, status, captureFrame]);
+  }, [isCapturing, status, isCameraReady, captureFrame]);
 
   // Track component mount state
   useEffect(() => {
@@ -91,7 +163,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
   }, []);
 
   useEffect(() => {
-    onStatusChange?.(status);
+    onStatusChange?.(status as ConnectionStatus);
   }, [status, onStatusChange]);
 
   // Auto-start capture when permissions are granted
@@ -127,16 +199,34 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
           ref={cameraRef}
           style={styles.camera}
           facing="front"
+          onCameraReady={handleCameraReady}
         />
-        
+
+        {/* ✅ Sending overlay */}
+        {isSending && (
+          <View style={styles.sendingWrap}>
+            <View style={styles.sendingPill}>
+              <Text style={styles.sendingText}>Sending</Text>
+              <Animated.Text style={[styles.sendingDot, { opacity: dot1 }]}>
+                .
+              </Animated.Text>
+              <Animated.Text style={[styles.sendingDot, { opacity: dot2 }]}>
+                .
+              </Animated.Text>
+              <Animated.Text style={[styles.sendingDot, { opacity: dot3 }]}>
+                .
+              </Animated.Text>
+            </View>
+          </View>
+        )}
+
         {/* Hand landmarks visualization */}
         {landmarks.length > 0 && (
-          <Svg 
-            style={StyleSheet.absoluteFill} 
+          <Svg
+            style={StyleSheet.absoluteFill}
             viewBox="0 0 1 1"
             preserveAspectRatio="xMidYMid slice"
           >
-            {/* Hand connections */}
             {HAND_CONNECTIONS.map(([start, end], idx) => (
               <Line
                 key={`line-${idx}`}
@@ -149,20 +239,30 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
                 opacity={0.8}
               />
             ))}
-            {/* Landmarks */}
+
             {landmarks.map((landmark, idx) => (
               <Circle
                 key={`point-${idx}`}
                 cx={landmark.y}
                 cy={1 - landmark.x}
                 r="0.005"
-                fill={idx === 0 ? "#ef4444" : idx === 4 || idx === 8 || idx === 12 || idx === 16 || idx === 20 ? "#10b981" : "#3b82f6"}
+                fill={
+                  idx === 0
+                    ? "#ef4444"
+                    : idx === 4 ||
+                      idx === 8 ||
+                      idx === 12 ||
+                      idx === 16 ||
+                      idx === 20
+                    ? "#10b981"
+                    : "#3b82f6"
+                }
                 opacity={0.9}
               />
             ))}
           </Svg>
         )}
-        
+
         {/* Overlay with current prediction */}
         <View style={styles.overlay}>
           <View style={styles.predictionBox}>
@@ -176,7 +276,6 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
             )}
           </View>
         </View>
-
       </View>
     </View>
   );
@@ -195,6 +294,39 @@ const styles = StyleSheet.create({
     backgroundColor: "#141824",
     position: "relative",
   },
+
+  // ✅ Sending overlay styles
+  sendingWrap: {
+    position: "absolute",
+    top: 54,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 50,
+  },
+  sendingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(10, 12, 16, 0.9)",
+    borderWidth: 1,
+    borderColor: "#2a2f3a",
+  },
+  sendingText: {
+    color: "#f5f7fb",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  sendingDot: {
+    color: "#f5f7fb",
+    fontSize: 16,
+    fontWeight: "800",
+    marginLeft: 1,
+  },
+
   fallbackTitle: {
     color: "#f5f7fb",
     fontSize: 14,
@@ -206,6 +338,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: "center",
   },
+
   camera: {
     flex: 1,
   },
