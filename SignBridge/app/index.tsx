@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context"; // Updated import
+import { SafeAreaView } from "react-native-safe-area-context";
 import * as Speech from "expo-speech";
 
 import { useGestureText } from "../contexts/gesture-text";
@@ -44,7 +44,6 @@ export default function Index() {
           ? "#ef4444"
           : "#6b7280";
 
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.deviceFrame}>
@@ -57,47 +56,70 @@ export default function Index() {
           <View style={styles.backgroundGlowBottom} />
 
           {isGestureMode ? (
-            // Gesture mode: split screen layout
-            <View style={styles.gestureModeSplit}>
-              <View style={styles.gestureTopBar}>
-                <Pressable
-                  style={styles.gestureBackButton}
-                  onPress={() => setInputMode("speech")}
-                >
-                  <Text style={styles.gestureBackText}>← Back to call</Text>
-                </Pressable>
-              </View>
-              {/* Camera half */}
-              <View style={styles.gestureCameraContainer}>
-                {debugMode && (
-                  <Text style={styles.debugSectionLabel}>Camera (Top 50%)</Text>
-                )}
-                <GestureCamera onStatusChange={setWsStatus} />
-              </View>
-              {debugMode && <View style={styles.debugDivider} />}
-              {/* Text detection half */}
-              <View style={[styles.gestureTextContainer, debugMode && styles.debugBorder]}>
-                {debugMode && (
-                  <Text style={styles.debugSectionLabel}>Detected Text (Bottom 50%)</Text>
-                )}
-                <Text style={styles.gestureTextLabel}>Detected Text</Text>
-                <View style={styles.gestureTextBox}>
-                  <Text style={styles.gestureTextContent}>
-                    {text || "Waiting for gestures..."}
-                  </Text>
+            // Gesture mode: three-layer layout with caller info at top (25%)
+            <View style={styles.gestureModeContainer}>
+              {/* Top layer: Caller information (25% of screen) */}
+              <View style={styles.gestureTopLayer}>
+                <View style={styles.gestureCallerInfo}>
+                  <View style={styles.gestureTopBar}>
+                    <Pressable
+                      style={styles.gestureBackButton}
+                      onPress={() => setInputMode("speech")}
+                    >
+                      <Text style={styles.gestureBackText}>← Back to call</Text>
+                    </Pressable>
+                  </View>
+                  
+                  <View style={styles.gestureHeader}>
+                    <Text style={styles.gestureCallerName}>Morgan Lee</Text>
+                    <Text style={styles.gestureCallStatus}>Call in progress</Text>
+                    <Text style={styles.gestureCallTime}>04:28</Text>
+                  </View>
+
+                  <View style={styles.gestureAvatarWrap}>
+                    <View style={styles.gestureAvatarInner}>
+                      <Text style={styles.gestureAvatarInitials}>ML</Text>
+                    </View>
+                  </View>
                 </View>
-                <Pressable
-                  style={[
-                    styles.speakButton,
-                    styles.gestureSendButton,
-                    (!text.trim() || isSpeaking) && styles.gestureSendButtonDisabled,
-                  ]}
-                  onPress={handleSpeak}
-                >
-                  <Text style={styles.speakButtonText}>
-                    {isSpeaking ? "Speaking" : "🔊 Send"}
-                  </Text>
-                </Pressable>
+              </View>
+
+              {/* Bottom layer: Camera and text detection (75% of screen) */}
+              <View style={styles.gestureBottomLayer}>
+                {/* Camera section (Top half of bottom layer) */}
+                <View style={styles.gestureCameraContainer}>
+                  {debugMode && (
+                    <Text style={styles.debugSectionLabel}>Camera (Top 50% of bottom layer)</Text>
+                  )}
+                  <GestureCamera onStatusChange={setWsStatus} />
+                </View>
+
+                {debugMode && <View style={styles.debugDivider} />}
+
+                {/* Text detection section (Bottom half of bottom layer) */}
+                <View style={[styles.gestureTextContainer, debugMode && styles.debugBorder]}>
+                  {debugMode && (
+                    <Text style={styles.debugSectionLabel}>Detected Text (Bottom 50% of bottom layer)</Text>
+                  )}
+                  <Text style={styles.gestureTextLabel}>Detected Text</Text>
+                  <View style={styles.gestureTextBox}>
+                    <Text style={styles.gestureTextContent}>
+                      {text || "Waiting for gestures..."}
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={[
+                      styles.speakButton,
+                      styles.gestureSendButton,
+                      (!text.trim() || isSpeaking) && styles.gestureSendButtonDisabled,
+                    ]}
+                    onPress={handleSpeak}
+                  >
+                    <Text style={styles.speakButtonText}>
+                      {isSpeaking ? "Speaking" : "🔊 Send"}
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
           ) : (
@@ -118,94 +140,94 @@ export default function Index() {
               <DebugBox label="inputModeCard" style={styles.inputModeCard} debugMode={debugMode}>
                 <Text style={styles.inputModeTitle}>Input mode</Text>
                 <View style={styles.inputModeRow}>
-              <Pressable
-                style={[
-                  styles.inputModeButton,
-                  inputMode === "speech" && styles.inputModeButtonActive,
-                ]}
-                onPress={() => setInputMode("speech")}
-              >
-                <Text style={styles.inputModeIcon}>🎤</Text>
-                <Text
-                  style={[
-                    styles.inputModeLabel,
-                    inputMode === "speech" && styles.inputModeLabelActive,
-                  ]}
-                >
-                  Speech
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.inputModeButton,
-                  inputMode === "text" && styles.inputModeButtonActive,
-                ]}
-                onPress={() => setInputMode("text")}
-              >
-                  <Text style={styles.inputModeIcon}>🔤</Text>
-                  <Text
+                  <Pressable
                     style={[
-                      styles.inputModeLabel,
-                      inputMode === "text" && styles.inputModeLabelActive,
+                      styles.inputModeButton,
+                      inputMode === "speech" && styles.inputModeButtonActive,
                     ]}
+                    onPress={() => setInputMode("speech")}
                   >
-                  Text
-                </Text>
-              </Pressable>
-                   <Pressable
-                     style={styles.inputModeButton}
-                onPress={() => setInputMode("gesture")}
-              >
-                <Text style={styles.inputModeIcon}>👋</Text>
-                <Text style={styles.inputModeLabel}>
-                  Gesture
-                </Text>
-              </Pressable>
-            </View>
+                    <Text style={styles.inputModeIcon}>🎤</Text>
+                    <Text
+                      style={[
+                        styles.inputModeLabel,
+                        inputMode === "speech" && styles.inputModeLabelActive,
+                      ]}
+                    >
+                      Speech
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.inputModeButton,
+                      inputMode === "text" && styles.inputModeButtonActive,
+                    ]}
+                    onPress={() => setInputMode("text")}
+                  >
+                    <Text style={styles.inputModeIcon}>🔤</Text>
+                    <Text
+                      style={[
+                        styles.inputModeLabel,
+                        inputMode === "text" && styles.inputModeLabelActive,
+                      ]}
+                    >
+                      Text
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.inputModeButton}
+                    onPress={() => setInputMode("gesture")}
+                  >
+                    <Text style={styles.inputModeIcon}>👋</Text>
+                    <Text style={styles.inputModeLabel}>
+                      Gesture
+                    </Text>
+                  </Pressable>
+                </View>
               </DebugBox>
 
               {inputMode === "text" ? (
                 <DebugBox label="textInputCard" style={styles.textInputCard} debugMode={debugMode}>
-              <Text style={styles.textInputLabel}>
-                Type to speak
-              </Text>
-              <View style={styles.textInputRow}>
-                <TextInput
-                  style={styles.textInputField}
-                  placeholder="Enter message"
-                  placeholderTextColor="#667085"
-                  value={text}
-                  onChangeText={setText}
-                  returnKeyType="done"
-                  onSubmitEditing={handleSpeak}
-                />
-                <Pressable
-                  style={[
-                    styles.speakButton,
-                    (!text.trim() || isSpeaking) && styles.speakButtonDisabled,
-                  ]}
-                  onPress={handleSpeak}
-                >
-                  <Text style={styles.speakButtonText}>
-                    {isSpeaking ? "Speaking" : "Send"}
+                  <Text style={styles.textInputLabel}>
+                    Type to speak
                   </Text>
-                </Pressable>
-              </View>
-              </DebugBox>
+                  <View style={styles.textInputRow}>
+                    <TextInput
+                      style={styles.textInputField}
+                      placeholder="Enter message"
+                      placeholderTextColor="#667085"
+                      value={text}
+                      onChangeText={setText}
+                      returnKeyType="done"
+                      onSubmitEditing={handleSpeak}
+                    />
+                    <Pressable
+                      style={[
+                        styles.speakButton,
+                        (!text.trim() || isSpeaking) && styles.speakButtonDisabled,
+                      ]}
+                      onPress={handleSpeak}
+                    >
+                      <Text style={styles.speakButtonText}>
+                        {isSpeaking ? "Speaking" : "Send"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </DebugBox>
               ) : null}
 
               <DebugBox label="controls" style={styles.controls} debugMode={debugMode}>
-                  <View style={styles.controlRow}>
-                    <ControlButton label="Mute" icon="🔇" debugMode={debugMode} />
-                    <ControlButton label="Keypad" icon="⌨️" debugMode={debugMode} />
-                    <ControlButton label="Speaker" icon="🔊" debugMode={debugMode} />
-                  </View>
-                  <View style={styles.controlRow}>
-                    <ControlButton label="Add" icon="➕" debugMode={debugMode} />
-                    <ControlButton label="FaceTime" icon="📱" debugMode={debugMode} />
-                    <ControlButton label="Contacts" icon="📋" debugMode={debugMode} />
-                  </View>
-                </DebugBox>
+                <View style={styles.controlRow}>
+                  <ControlButton label="Mute" icon="🔇" debugMode={debugMode} />
+                  <ControlButton label="Keypad" icon="⌨️" debugMode={debugMode} />
+                  <ControlButton label="Speaker" icon="🔊" debugMode={debugMode} />
+                </View>
+                <View style={styles.controlRow}>
+                  <ControlButton label="Add" icon="➕" debugMode={debugMode} />
+                  <ControlButton label="FaceTime" icon="📱" debugMode={debugMode} />
+                  <ControlButton label="Contacts" icon="📋" debugMode={debugMode} />
+                </View>
+              </DebugBox>
 
               <Pressable style={styles.endCallButton}>
                 <Text style={styles.endCallText}>End Call</Text>
@@ -568,10 +590,23 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     zIndex: 2,
   },
-  gestureModeSplit: {
+  
+  // New styles for the three-layer gesture mode
+  gestureModeContainer: {
     flex: 1,
-    flexDirection: "column",
     width: "100%",
+  },
+  gestureTopLayer: {
+    flex: 0.25, // 25% of screen
+    backgroundColor: "#0b0b0d",
+    borderBottomWidth: 1,
+    borderBottomColor: "#232837",
+  },
+  gestureCallerInfo: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
   },
   gestureTopBar: {
     position: "absolute",
@@ -591,8 +626,56 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.2,
   },
+  gestureHeader: {
+    alignItems: "center",
+    marginTop: 20,
+  },
+  gestureCallerName: {
+    color: "#f5f7fb",
+    fontSize: 22,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  gestureCallStatus: {
+    color: "#8f96a3",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  gestureCallTime: {
+    color: "#c6c9d2",
+    fontSize: 14,
+    marginTop: 8,
+    letterSpacing: 1.2,
+  },
+  gestureAvatarWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "#2a2f3a",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(18, 20, 27, 0.8)",
+    marginTop: 12,
+  },
+  gestureAvatarInner: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#232734",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gestureAvatarInitials: {
+    color: "#eef1f6",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  gestureBottomLayer: {
+    flex: 0.75, // 75% of screen
+  },
   gestureCameraContainer: {
-    flex: 1,
+    flex: 1, // 50% of bottom layer
     width: "100%",
     backgroundColor: "#000000",
     justifyContent: "center",
@@ -600,7 +683,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   gestureTextContainer: {
-    flex: 1,
+    flex: 1, // 50% of bottom layer
     width: "100%",
     backgroundColor: "#0b0b0d",
     padding: 16,
