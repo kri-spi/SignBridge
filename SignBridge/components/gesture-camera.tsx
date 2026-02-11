@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Svg, { Circle, Line } from "react-native-svg";
 
@@ -12,10 +12,6 @@ type GestureCameraProps = {
 };
 
 // Keywords we're recognizing
-const KEYWORDS = [
-  "HELLO", "THANK_YOU", "YES", "NO", "HELP", 
-  "PLEASE", "SORRY", "STOP", "WHERE", "WATER"
-];
 
 // MediaPipe hand landmark connections for drawing skeleton
 const HAND_CONNECTIONS: [number, number][] = [
@@ -34,18 +30,19 @@ const HAND_CONNECTIONS: [number, number][] = [
 ];
 
 export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { status, currentSign, confidence, landmarks, sendFrame } = useSignRecognition();
 
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const isMountedRef = useRef(true);
 
   // Capture frames at 5-8 fps (every 150-200ms)
-  const captureFrame = async () => {
-    if (!cameraRef.current || !isMountedRef.current) return;
+  const captureFrame = useCallback(async () => {
+    if (!cameraRef.current || !isMountedRef.current || !isCameraReady) return;
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -64,11 +61,11 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
         console.error("Failed to capture frame:", error);
       }
     }
-  };
+  }, [isCameraReady, sendFrame]);
 
   // Start/stop frame capture
   useEffect(() => {
-    if (isCapturing && status === "connected") {
+    if (isCapturing && status === "connected" && isCameraReady) {
       frameIntervalRef.current = setInterval(captureFrame, 150); // ~6.6 fps
     } else {
       if (frameIntervalRef.current) {
@@ -83,7 +80,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
         frameIntervalRef.current = null;
       }
     };
-  }, [isCapturing, status, captureFrame]);
+  }, [isCapturing, status, isCameraReady, captureFrame]);
 
   // Track component mount state
   useEffect(() => {
@@ -130,6 +127,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
           ref={cameraRef}
           style={styles.camera}
           facing="front"
+          onCameraReady={() => setIsCameraReady(true)}
         />
         
         {/* Hand landmarks visualization */}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View, Dimensions } from "react-native";
+import { Pressable, StyleSheet, Text, View, Dimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Speech from "expo-speech";
 
@@ -15,10 +15,10 @@ export default function Index() {
   const [inputMode, setInputMode] = useState<"speech" | "text" | "gesture">(
     "speech"
   );
-  const { text, setText } = useGestureText();
+  const { text } = useGestureText();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [wsStatus, setWsStatus] = useState<ConnectionStatus>("disconnected");
-  const [debugMode, setDebugMode] = useState(false);
+  const [debugMode] = useState(false);
 
   const handleSpeak = () => {
     const value = text.trim();
@@ -31,13 +31,18 @@ export default function Index() {
   };
 
   // NOTE: keep this if you still want to enable debug via some hidden gesture later
-  const toggleDebugMode = () => {
-    setDebugMode((prev: boolean) => !prev);
-  };
 
   const isGestureMode = inputMode === "gesture";
 
-  // kept in case you still track status internally; UI pill removed
+  const statusLabel =
+    wsStatus === "connected"
+      ? "Connected"
+      : wsStatus === "connecting"
+        ? "Connecting"
+        : wsStatus === "error"
+          ? "Error"
+          : "Disconnected";
+
   const statusColor =
     wsStatus === "connected"
       ? "#22c55e"
@@ -47,7 +52,7 @@ export default function Index() {
           ? "#ef4444"
           : "#6b7280";
 
-    return (
+  return (
     <SafeAreaView style={styles.container}>
       {/* iPhone mock shell */}
       <View style={styles.phoneShell}>
@@ -60,9 +65,8 @@ export default function Index() {
             <View style={styles.backgroundGlowBottom} />
 
             {isGestureMode ? (
-              // Gesture mode: three-layer layout with caller info at top (25%)
               <View style={styles.gestureModeContainer}>
-                {/* Top layer: Caller information (25% of screen) */}
+                {/* Top layer */}
                 <View style={styles.gestureTopLayer}>
                   <View style={styles.gestureCallerInfo}>
                     <View style={styles.gestureTopBar}>
@@ -72,6 +76,14 @@ export default function Index() {
                       >
                         <Text style={styles.gestureBackText}>← Back</Text>
                       </Pressable>
+
+                      {/* status pill */}
+                      <View style={[styles.statusPill, { borderColor: statusColor }]}>
+                        <View
+                          style={[styles.statusDot, { backgroundColor: statusColor }]}
+                        />
+                        <Text style={styles.statusText}>{statusLabel}</Text>
+                      </View>
                     </View>
 
                     <View style={styles.gestureHeader}>
@@ -88,9 +100,8 @@ export default function Index() {
                   </View>
                 </View>
 
-                {/* Bottom layer: Camera and text detection (75% of screen) */}
+                {/* Bottom layer */}
                 <View style={styles.gestureBottomLayer}>
-                  {/* Camera section (Top half of bottom layer) */}
                   <View style={styles.gestureCameraContainer}>
                     {debugMode && (
                       <Text style={styles.debugSectionLabel}>
@@ -102,7 +113,6 @@ export default function Index() {
 
                   {debugMode && <View style={styles.debugDivider} />}
 
-                  {/* Text detection section (Bottom half of bottom layer) */}
                   <View
                     style={[
                       styles.gestureTextContainer,
@@ -137,8 +147,19 @@ export default function Index() {
                 </View>
               </View>
             ) : (
-              // Normal mode: call interface
               <>
+                {/* status pill (normal mode) */}
+                <View
+                  style={[
+                    styles.statusPill,
+                    styles.statusPillAbsolute,
+                    { borderColor: statusColor },
+                  ]}
+                >
+                  <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                  <Text style={styles.statusText}>{statusLabel}</Text>
+                </View>
+
                 <View style={styles.header}>
                   <Text style={styles.callerName}>Morgan Lee</Text>
                   <Text style={styles.callStatus}>Call in progress</Text>
@@ -151,104 +172,7 @@ export default function Index() {
                   </View>
                 </View>
 
-                <DebugBox
-                  label="inputModeCard"
-                  style={styles.inputModeCard}
-                  debugMode={debugMode}
-                >
-                  <Text style={styles.inputModeTitle}>Input mode</Text>
-                  <View style={styles.inputModeRow}>
-                    <Pressable
-                      style={[
-                        styles.inputModeButton,
-                        inputMode === "speech" && styles.inputModeButtonActive,
-                      ]}
-                      onPress={() => setInputMode("speech")}
-                    >
-                      <Text style={styles.inputModeIcon}>🎤</Text>
-                      <Text
-                        style={[
-                          styles.inputModeLabel,
-                          inputMode === "speech" && styles.inputModeLabelActive,
-                        ]}
-                      >
-                        Speech
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      style={[
-                        styles.inputModeButton,
-                        inputMode === "text" && styles.inputModeButtonActive,
-                      ]}
-                      onPress={() => setInputMode("text")}
-                    >
-                      <Text style={styles.inputModeIcon}>🔤</Text>
-                      <Text
-                        style={[
-                          styles.inputModeLabel,
-                          inputMode === "text" && styles.inputModeLabelActive,
-                        ]}
-                      >
-                        Text
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      style={styles.inputModeButton}
-                      onPress={() => setInputMode("gesture")}
-                    >
-                      <Text style={styles.inputModeIcon}>👋</Text>
-                      <Text style={styles.inputModeLabel}>Gesture</Text>
-                    </Pressable>
-                  </View>
-                </DebugBox>
-
-                {inputMode === "text" ? (
-                  <DebugBox
-                    label="textInputCard"
-                    style={styles.textInputCard}
-                    debugMode={debugMode}
-                  >
-                    <Text style={styles.textInputLabel}>Type to speak</Text>
-                    <View style={styles.textInputRow}>
-                      <TextInput
-                        style={styles.textInputField}
-                        placeholder="Enter message"
-                        placeholderTextColor="#667085"
-                        value={text}
-                        onChangeText={setText}
-                        returnKeyType="done"
-                        onSubmitEditing={handleSpeak}
-                      />
-                      <Pressable
-                        style={[
-                          styles.speakButton,
-                          (!text.trim() || isSpeaking) &&
-                            styles.speakButtonDisabled,
-                        ]}
-                        onPress={handleSpeak}
-                      >
-                        <Text style={styles.speakButtonText}>
-                          {isSpeaking ? "Speaking" : "Send"}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </DebugBox>
-                ) : null}
-
-                <DebugBox label="controls" style={styles.controls} debugMode={debugMode}>
-                  <View style={styles.controlRow}>
-                    <ControlButton label="Mute" icon="🔇" debugMode={debugMode} />
-                    <ControlButton label="Keypad" icon="⌨️" debugMode={debugMode} />
-                    <ControlButton label="Speaker" icon="🔊" debugMode={debugMode} />
-                  </View>
-                  <View style={styles.controlRow}>
-                    <ControlButton label="Add" icon="➕" debugMode={debugMode} />
-                    <ControlButton label="FaceTime" icon="📱" debugMode={debugMode} />
-                    <ControlButton label="Contacts" icon="📋" debugMode={debugMode} />
-                  </View>
-                </DebugBox>
+                {/* ...keep the rest of your normal-mode UI exactly as you already have... */}
 
                 <Pressable style={styles.endCallButton}>
                   <Text style={styles.endCallText}>End Call</Text>
@@ -256,54 +180,20 @@ export default function Index() {
               </>
             )}
 
-            {/* Debug overlay (kept, controlled by debugMode state) */}
             <DebugOverlay debugMode={debugMode} />
-
-            {/* Debug mode button removed for clean iPhone mock */}
-            {/* If you want a hidden toggle, wrap the whole screen in a Pressable and use onLongPress={toggleDebugMode} */}
           </View>
         </View>
       </View>
     </SafeAreaView>
   );
 
+
 }
 
-type ControlButtonProps = {
-  label: string;
-  icon: string;
-  debugMode?: boolean;
-};
 
-function ControlButton({ label, icon, debugMode = false }: ControlButtonProps) {
-  return (
-    <Pressable style={styles.controlButton}>
-      <View style={[styles.controlIcon, debugMode && styles.debugBorder]}>
-        <Text style={styles.controlIconText}>{icon}</Text>
-      </View>
-      <Text style={styles.controlLabel}>{label}</Text>
-    </Pressable>
-  );
-}
 
-type DebugBoxProps = {
-  children: React.ReactNode;
-  label: string;
-  style?: any;
-  debugMode?: boolean;
-};
 
-function DebugBox({ children, label, style, debugMode = false }: DebugBoxProps) {
-  if (!debugMode) return <>{children}</>;
-  return (
-    <View style={[style, styles.debugBorder]}>
-      <Text style={styles.debugLabel}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+const { height: screenHeight } = Dimensions.get("window");
 
 // Keep realistic iPhone ratio (390x844 ≈ 0.46 width/height ratio)
 const PHONE_RATIO = 390 / 844;
@@ -373,10 +263,33 @@ phoneShell: {
     borderColor: "#15181f",
     opacity: 0.95,
   },
-
-  // status pill REMOVED (was statusIcon)
-  // toggle debug button REMOVED
-
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(12, 14, 21, 0.85)",
+    borderWidth: 1,
+  },
+  statusPillAbsolute: {
+    position: "absolute",
+    top: 12,
+    right: 16,
+    zIndex: 3,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    color: "#c6c9d2",
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
   backgroundGlowTop: {
     position: "absolute",
     top: -120,
@@ -656,6 +569,10 @@ phoneShell: {
     position: "absolute",
     top: 12,
     left: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     zIndex: 2,
   },
   gestureBackButton: {
