@@ -20,10 +20,10 @@ To run the backend server:
 
 ## Running on the Web
 
-To run the application on the web, use the following command:
+To run the simulator on the web, use the following command:
 
 ```bash
-npx expo start --web
+npx expo start --webs
 ```
 
 This application is optimized for the web, providing a seamless experience across devices.
