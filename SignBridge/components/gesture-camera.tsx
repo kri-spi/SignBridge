@@ -11,22 +11,37 @@ type GestureCameraProps = {
   onStatusChange?: (status: ConnectionStatus) => void;
 };
 
-// Keywords we're recognizing
-
 // MediaPipe hand landmark connections for drawing skeleton
 const HAND_CONNECTIONS: [number, number][] = [
   // Thumb
-  [0, 1], [1, 2], [2, 3], [3, 4],
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 4],
   // Index finger
-  [0, 5], [5, 6], [6, 7], [7, 8],
+  [0, 5],
+  [5, 6],
+  [6, 7],
+  [7, 8],
   // Middle finger
-  [0, 9], [9, 10], [10, 11], [11, 12],
+  [0, 9],
+  [9, 10],
+  [10, 11],
+  [11, 12],
   // Ring finger
-  [0, 13], [13, 14], [14, 15], [15, 16],
+  [0, 13],
+  [13, 14],
+  [14, 15],
+  [15, 16],
   // Pinky
-  [0, 17], [17, 18], [18, 19], [19, 20],
+  [0, 17],
+  [17, 18],
+  [18, 19],
+  [19, 20],
   // Palm
-  [5, 9], [9, 13], [13, 17]
+  [5, 9],
+  [9, 13],
+  [13, 17],
 ];
 
 export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
@@ -34,13 +49,23 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
   const cameraRef = useRef<CameraView>(null);
   const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { status, currentSign, confidence, landmarks, sendFrame } = useSignRecognition();
+  const { status, currentSign, confidence, landmarks, sendFrame } =
+    useSignRecognition();
 
   const [isCapturing, setIsCapturing] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const isMountedRef = useRef(true);
 
-  // Capture frames at 5-8 fps (every 150-200ms)
+  const handleCameraReady = useCallback(() => {
+    // Add a short delay to ensure the video stream has real frames
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        setIsCameraReady(true);
+      }
+    }, 500);
+  }, []);
+
+  // Capture frames at ~6–7 fps
   const captureFrame = useCallback(async () => {
     if (!cameraRef.current || !isMountedRef.current || !isCameraReady) return;
 
@@ -52,10 +77,17 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
       });
 
       if (photo?.base64 && isMountedRef.current) {
-        // Send to backend
         sendFrame(photo.base64, photo.width, photo.height);
       }
     } catch (error) {
+      // Common during camera startup: skip quietly
+      if (
+        error instanceof Error &&
+        error.message?.toLowerCase().includes("enough camera data")
+      ) {
+        return;
+      }
+
       // Silently ignore camera unmount errors during cleanup
       if (error instanceof Error && !error.message?.includes("unmounted")) {
         console.error("Failed to capture frame:", error);
@@ -91,7 +123,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
   }, []);
 
   useEffect(() => {
-    onStatusChange?.(status);
+    onStatusChange?.(status as ConnectionStatus);
   }, [status, onStatusChange]);
 
   // Auto-start capture when permissions are granted
@@ -127,13 +159,13 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
           ref={cameraRef}
           style={styles.camera}
           facing="front"
-          onCameraReady={() => setIsCameraReady(true)}
+          onCameraReady={handleCameraReady}
         />
-        
+
         {/* Hand landmarks visualization */}
         {landmarks.length > 0 && (
-          <Svg 
-            style={StyleSheet.absoluteFill} 
+          <Svg
+            style={StyleSheet.absoluteFill}
             viewBox="0 0 1 1"
             preserveAspectRatio="xMidYMid slice"
           >
@@ -150,6 +182,7 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
                 opacity={0.8}
               />
             ))}
+
             {/* Landmarks */}
             {landmarks.map((landmark, idx) => (
               <Circle
@@ -157,13 +190,23 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
                 cx={landmark.y}
                 cy={1 - landmark.x}
                 r="0.005"
-                fill={idx === 0 ? "#ef4444" : idx === 4 || idx === 8 || idx === 12 || idx === 16 || idx === 20 ? "#10b981" : "#3b82f6"}
+                fill={
+                  idx === 0
+                    ? "#ef4444"
+                    : idx === 4 ||
+                      idx === 8 ||
+                      idx === 12 ||
+                      idx === 16 ||
+                      idx === 20
+                    ? "#10b981"
+                    : "#3b82f6"
+                }
                 opacity={0.9}
               />
             ))}
           </Svg>
         )}
-        
+
         {/* Overlay with current prediction */}
         <View style={styles.overlay}>
           <View style={styles.predictionBox}>
@@ -177,7 +220,6 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
             )}
           </View>
         </View>
-
       </View>
     </View>
   );

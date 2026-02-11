@@ -39,46 +39,50 @@ export function useSignRecognition() {
   useEffect(() => {
     const connect = () => {
       try {
+        console.log("🔌 Attempting to connect to WebSocket:", WS_URL);
         setStatus("connecting");
         const ws = new WebSocket(WS_URL);
 
         ws.onopen = () => {
-          console.log("WebSocket connected");
+          console.log("✅ WebSocket connected successfully");
           setStatus("connected");
         };
 
         ws.onmessage = (event) => {
+          console.log("📨 Received message:", event.data);
           try {
             const message: PredictionMessage = JSON.parse(event.data);
             if (message.type === "prediction") {
+              console.log("🤚 Prediction:", message.token, "confidence:", message.confidence);
               setCurrentSign(message.token);
               setConfidence(message.confidence);
               setStabilityMs(message.stable_ms);
               if (message.landmarks) {
+                console.log("👆 Landmarks received:", message.landmarks.length);
                 setLandmarks(message.landmarks);
               }
             }
           } catch (error) {
-            console.error("Failed to parse message:", error);
+            console.error("❌ Failed to parse message:", error);
           }
         };
 
         ws.onerror = (error) => {
-          console.error("WebSocket error:", error);
+          console.error("❌ WebSocket error:", error);
           console.error("Connection URL:", WS_URL);
           console.error("Error event:", JSON.stringify(error));
           setStatus("error");
         };
 
         ws.onclose = () => {
-          console.log("WebSocket disconnected");
+          console.log("🔌 WebSocket disconnected");
           setStatus("disconnected");
           wsRef.current = null;
         };
 
         wsRef.current = ws;
       } catch (error) {
-        console.error("Failed to connect:", error);
+        console.error("❌ Failed to connect:", error);
         setStatus("error");
       }
     };
@@ -124,7 +128,10 @@ export function useSignRecognition() {
         w: width,
         h: height,
       };
+      console.log("📤 Sending frame to server, size:", normalizedBase64.length, "bytes");
       wsRef.current.send(JSON.stringify(message));
+    } else {
+      console.log("⚠️ Cannot send frame - WebSocket not open. State:", wsRef.current?.readyState);
     }
   }, []);
 

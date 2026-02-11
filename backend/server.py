@@ -30,8 +30,10 @@ HandLandmarker = mp.tasks.vision.HandLandmarker
 HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
 VisionRunningMode = mp.tasks.vision.RunningMode
 
+# Ensure model exists (download if missing)
 if not os.path.exists(HAND_MODEL_PATH):
     import urllib.request
+
     print("Downloading MediaPipe hand model...")
     urllib.request.urlretrieve(
         "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
@@ -42,12 +44,25 @@ options = HandLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=HAND_MODEL_PATH),
     running_mode=VisionRunningMode.IMAGE,
     num_hands=1,
-    min_hand_detection_confidence=0.5,
-    min_hand_presence_confidence=0.5,
-    min_tracking_confidence=0.5,
+    # Lowered thresholds improve detection robustness in real usage
+    min_hand_detection_confidence=0.3,
+    min_hand_presence_confidence=0.3,
+    min_tracking_confidence=0.3,
 )
 
-landmarker = HandLandmarker.create_from_options(options)
+try:
+    landmarker = HandLandmarker.create_from_options(options)
+    print("✅ MediaPipe hand landmarker loaded successfully")
+except Exception as e:
+    # Retry once: redownload into the correct path and load again
+    print(f"Warning: Could not load MediaPipe model: {e}")
+    print("Re-downloading model file...")
+    import urllib.request
+
+    url = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+    urllib.request.urlretrieve(url, HAND_MODEL_PATH)
+    landmarker = HandLandmarker.create_from_options(options)
+    print("✅ MediaPipe hand landmarker loaded successfully")
 
 # =========================
 # Vosk Speech Recognition
@@ -80,8 +95,17 @@ class SpeechRecognizer:
 # Sign Recognition Logic
 # =========================
 KEYWORDS = [
-    "HELLO", "THANK_YOU", "YES", "NO", "HELP",
-    "PLEASE", "SORRY", "STOP", "WHERE", "WATER", "NONE"
+    "HELLO",
+    "THANK_YOU",
+    "YES",
+    "NO",
+    "HELP",
+    "PLEASE",
+    "SORRY",
+    "STOP",
+    "WHERE",
+    "WATER",
+    "NONE",
 ]
 
 
@@ -96,7 +120,7 @@ class SignRecognizer:
         if not landmarks:
             return None
 
-        points = np.array([[lm.x, lm.y, lm.z] for lm in landmarks])
+        points = np.array([[lm.x, lm.y, lm.z] for lm in landmarks], dtype=np.float32)
         points -= points[0]
 
         palm_size = np.linalg.norm(points[9] - points[0])
@@ -116,7 +140,7 @@ class SignRecognizer:
         if features is None:
             return "NONE", 0.0
 
-        avg_distance = np.mean(features[-5:])
+        avg_distance = float(np.mean(features[-5:]))
 
         if avg_distance < 0.3:
             return "STOP", 0.85
@@ -129,12 +153,13 @@ class SignRecognizer:
 
     def smooth_prediction(self, token, confidence):
         now = int(time.monotonic() * 1000)
-        self.prediction_window.append((token, confidence))
+        self.prediction_window.append((token, float(confidence)))
 
         from collections import Counter
+
         dominant, count = Counter(t for t, _ in self.prediction_window).most_common(1)[0]
         stability = count / len(self.prediction_window)
-        avg_conf = np.mean(c for t, c in self.prediction_window if t == dominant)
+        avg_conf = float(np.mean([c for t, c in self.prediction_window if t == dominant]))
 
         is_stable = stability >= 0.7 and avg_conf >= 0.75 and dominant != "NONE"
 
@@ -156,7 +181,7 @@ class SignRecognizer:
         return {
             "type": "prediction",
             "token": dominant,
-            "confidence": float(avg_conf),
+            "confidence": avg_conf,
             "stable_ms": stable_ms,
             "commit": commit,
             "ts": now,
@@ -176,13 +201,19 @@ app.add_middleware(
 )
 
 sign_recognizer = SignRecognizer()
+frame_count = 0
+
+# Toggle this to reduce spam while debugging
+DEBUG_FRAMES = True
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
+    print("✅ Client connected")
+
+    global frame_count
     speech_recognizer = SpeechRecognizer()
-    print("Client connected")
 
     try:
         while True:
@@ -190,13 +221,25 @@ async def websocket_endpoint(ws: WebSocket):
             msg_type = message.get("type")
 
             if msg_type == "frame":
-                image = Image.open(BytesIO(base64.b64decode(message["image_b64"])))
-                mp_image = mp.Image(
-                    image_format=mp.ImageFormat.SRGB,
-                    data=np.array(image, dtype=np.uint8),
-                )
+                frame_count += 1
 
-                # Run MediaPipe detection in executor to avoid blocking
+                # Decode base64 image into PIL
+                image_data = base64.b64decode(message["image_b64"])
+                pil_image = Image.open(BytesIO(image_data))
+
+                # Ensure RGB
+                if pil_image.mode != "RGB":
+                    pil_image = pil_image.convert("RGB")
+
+                image_np = np.array(pil_image, dtype=np.uint8)
+                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_np)
+
+                if DEBUG_FRAMES and frame_count % 15 == 0:
+                    print(
+                        f"📸 Frame {frame_count}: size={pil_image.size}, np={image_np.shape}, dtype={image_np.dtype}"
+                    )
+
+                # Run detection in executor to avoid blocking the event loop
                 loop = asyncio.get_event_loop()
                 results = await loop.run_in_executor(None, landmarker.detect, mp_image)
 
@@ -205,12 +248,16 @@ async def websocket_endpoint(ws: WebSocket):
                     features = sign_recognizer.extract_features(landmarks)
                     token, conf = sign_recognizer.classify(features)
                     landmarks_out = [{"x": l.x, "y": l.y, "z": l.z} for l in landmarks]
+
+                    if DEBUG_FRAMES and frame_count % 15 == 0:
+                        print(f"   🤚 Detected hand → {token} ({conf:.2f})")
                 else:
                     token, conf, landmarks_out = "NONE", 0.0, []
+                    if DEBUG_FRAMES and frame_count % 30 == 0:
+                        print("   ❌ No hand detected")
 
                 prediction = sign_recognizer.smooth_prediction(token, conf)
                 prediction["landmarks"] = landmarks_out
-
                 await ws.send_text(json.dumps(prediction))
 
             elif msg_type == "audio":
@@ -222,7 +269,16 @@ async def websocket_endpoint(ws: WebSocket):
                 print("Unknown message type received:", msg_type)
 
     except WebSocketDisconnect:
-        print("Client disconnected")
+        print("❌ Client disconnected")
+    except Exception as e:
+        print(f"❌ Error in websocket loop: {e}")
+        import traceback
+
+        traceback.print_exc()
+        try:
+            await ws.close()
+        except Exception:
+            pass
 
 
 @app.get("/")
@@ -232,4 +288,7 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+
+    print("🚀 Starting SignBridge backend server...")
+    print("📋 Keywords:", KEYWORDS)
     uvicorn.run(app, host="0.0.0.0", port=8000)
