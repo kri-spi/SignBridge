@@ -6,6 +6,8 @@ from io import BytesIO
 from typing import Optional
 from collections import deque
 import os
+import subprocess
+import tempfile
 
 import numpy as np
 from PIL import Image
@@ -74,6 +76,48 @@ class SpeechRecognizer:
         else:
             partial = json.loads(self.recognizer.PartialResult()).get("partial", "")
             return {"type": "speech", "final": False, "text": partial}
+        
+    def transcribe_pcm_with_words(self, pcm_bytes: bytes) -> dict:
+        """
+        Feed ALL PCM bytes and return final result including word timestamps.
+        """
+        # Reset recognizer state by creating a new one (simplest / safest)
+        r = KaldiRecognizer(vosk_model, 16000)
+        r.SetWords(True)
+
+        chunk_size = 4000  # bytes; can be tuned
+        for i in range(0, len(pcm_bytes), chunk_size):
+            r.AcceptWaveform(pcm_bytes[i:i + chunk_size])
+
+        final = json.loads(r.FinalResult())
+        # Vosk final result typically: {"text":"...", "result":[{"word":"...", "start":0.12,"end":0.52,"conf":...}, ...]}
+        words = final.get("result", [])
+        return {"type": "audio_file_transcript", "text": final.get("text", ""), "words": words}
+
+def mp3_to_pcm16k_mono(mp3_bytes: bytes) -> bytes:
+    """
+    Decode MP3 bytes to raw PCM: 16kHz, mono, signed 16-bit little-endian.
+    Uses ffmpeg CLI.
+    """
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f_in:
+        f_in.write(mp3_bytes)
+        f_in.flush()
+
+        # ffmpeg output to stdout as raw PCM
+        cmd = [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel", "error",
+            "-i", f_in.name,
+            "-ac", "1",
+            "-ar", "16000",
+            "-f", "s16le",
+            "pipe:1",
+        ]
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if proc.returncode != 0:
+            raise RuntimeError(f"ffmpeg decode failed: {proc.stderr.decode('utf-8', errors='ignore')}")
+        return proc.stdout
 
 
 # =========================
@@ -217,6 +261,13 @@ async def websocket_endpoint(ws: WebSocket):
                 audio_bytes = base64.b64decode(message["audio_b64"])
                 result = speech_recognizer.accept_audio(audio_bytes)
                 await ws.send_text(json.dumps(result))
+                
+            elif msg_type == "audio_file":
+                # expects {"type":"audio_file","audio_mp3_b64":"..."}
+                mp3_bytes = base64.b64decode(message["audio_mp3_b64"])
+                pcm = mp3_to_pcm16k_mono(mp3_bytes)
+                transcript = speech_recognizer.transcribe_pcm_with_words(pcm)
+                await ws.send_text(json.dumps(transcript))
 
             else:
                 print("Unknown message type received:", msg_type)

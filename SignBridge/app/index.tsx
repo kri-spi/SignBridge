@@ -1,9 +1,10 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Speech from "expo-speech";
 
 import { useGestureText } from "../contexts/gesture-text";
+import { useAudioTranscript } from "../contexts/audio-transcript";
 import GestureCamera from "../components/gesture-camera";
 import DebugOverlay from "../components/DebugOverlay";
 
@@ -20,9 +21,7 @@ export default function Index() {
 
   const handleSpeak = () => {
     const value = text.trim();
-    if (!value || isSpeaking) {
-      return;
-    }
+    if (!value || isSpeaking) return;
 
     setIsSpeaking(true);
     Speech.speak(value, {
@@ -55,6 +54,10 @@ export default function Index() {
           <View style={styles.backgroundGlowTop} />
           <View style={styles.backgroundGlowBottom} />
 
+          {/* ✅ Always-available audio controls */}
+          <AudioPlayOverlayButton />
+          <LiveTranscriptBar />
+
           {isGestureMode ? (
             // Gesture mode: three-layer layout with caller info at top (25%)
             <View style={styles.gestureModeContainer}>
@@ -69,7 +72,7 @@ export default function Index() {
                       <Text style={styles.gestureBackText}>← Back to call</Text>
                     </Pressable>
                   </View>
-                  
+
                   <View style={styles.gestureHeader}>
                     <Text style={styles.gestureCallerName}>Morgan Lee</Text>
                     <Text style={styles.gestureCallStatus}>Call in progress</Text>
@@ -89,7 +92,9 @@ export default function Index() {
                 {/* Camera section (Top half of bottom layer) */}
                 <View style={styles.gestureCameraContainer}>
                   {debugMode && (
-                    <Text style={styles.debugSectionLabel}>Camera (Top 50% of bottom layer)</Text>
+                    <Text style={styles.debugSectionLabel}>
+                      Camera (Top 50% of bottom layer)
+                    </Text>
                   )}
                   <GestureCamera onStatusChange={setWsStatus} />
                 </View>
@@ -97,9 +102,13 @@ export default function Index() {
                 {debugMode && <View style={styles.debugDivider} />}
 
                 {/* Text detection section (Bottom half of bottom layer) */}
-                <View style={[styles.gestureTextContainer, debugMode && styles.debugBorder]}>
+                <View
+                  style={[styles.gestureTextContainer, debugMode && styles.debugBorder]}
+                >
                   {debugMode && (
-                    <Text style={styles.debugSectionLabel}>Detected Text (Bottom 50% of bottom layer)</Text>
+                    <Text style={styles.debugSectionLabel}>
+                      Detected Text (Bottom 50% of bottom layer)
+                    </Text>
                   )}
                   <Text style={styles.gestureTextLabel}>Detected Text</Text>
                   <View style={styles.gestureTextBox}>
@@ -137,7 +146,11 @@ export default function Index() {
                 </View>
               </View>
 
-              <DebugBox label="inputModeCard" style={styles.inputModeCard} debugMode={debugMode}>
+              <DebugBox
+                label="inputModeCard"
+                style={styles.inputModeCard}
+                debugMode={debugMode}
+              >
                 <Text style={styles.inputModeTitle}>Input mode</Text>
                 <View style={styles.inputModeRow}>
                   <Pressable
@@ -179,18 +192,18 @@ export default function Index() {
                     onPress={() => setInputMode("gesture")}
                   >
                     <Text style={styles.inputModeIcon}>👋</Text>
-                    <Text style={styles.inputModeLabel}>
-                      Gesture
-                    </Text>
+                    <Text style={styles.inputModeLabel}>Gesture</Text>
                   </Pressable>
                 </View>
               </DebugBox>
 
               {inputMode === "text" ? (
-                <DebugBox label="textInputCard" style={styles.textInputCard} debugMode={debugMode}>
-                  <Text style={styles.textInputLabel}>
-                    Type to speak
-                  </Text>
+                <DebugBox
+                  label="textInputCard"
+                  style={styles.textInputCard}
+                  debugMode={debugMode}
+                >
+                  <Text style={styles.textInputLabel}>Type to speak</Text>
                   <View style={styles.textInputRow}>
                     <TextInput
                       style={styles.textInputField}
@@ -237,7 +250,7 @@ export default function Index() {
 
           {/* DEBUG MODE HERE */}
           <DebugOverlay debugMode={debugMode} />
-          {/* <Pressable onPress={toggleDebugMode} style={styles.toggleButton}> 
+          {/* <Pressable onPress={toggleDebugMode} style={styles.toggleButton}>
             <Text style={styles.toggleButtonText}>Toggle Debug</Text>
           </Pressable> */}
         </View>
@@ -260,6 +273,27 @@ function ControlButton({ label, icon, debugMode = false }: ControlButtonProps) {
       </View>
       <Text style={styles.controlLabel}>{label}</Text>
     </Pressable>
+  );
+}
+
+function AudioPlayOverlayButton() {
+  const { isPlaying, togglePlay } = useAudioTranscript();
+  return (
+    <Pressable style={styles.audioPlayButton} onPress={togglePlay}>
+      <Text style={styles.audioPlayButtonText}>{isPlaying ? "⏸" : "▶️"}</Text>
+    </Pressable>
+  );
+}
+
+function LiveTranscriptBar() {
+  const { liveText } = useAudioTranscript();
+  return (
+    <View style={styles.transcriptBar}>
+      <Text style={styles.transcriptLabel}>Audio transcript</Text>
+      <Text style={styles.transcriptText} numberOfLines={2}>
+        {liveText || "—"}
+      </Text>
+    </View>
   );
 }
 
@@ -589,14 +623,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     zIndex: 2,
   },
-  
+
   // New styles for the three-layer gesture mode
   gestureModeContainer: {
     flex: 1,
     width: "100%",
   },
   gestureTopLayer: {
-    flex: 0.25, // 25% of screen
+    flex: 0.25,
     backgroundColor: "#0b0b0d",
     borderBottomWidth: 1,
     borderBottomColor: "#232837",
@@ -671,10 +705,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   gestureBottomLayer: {
-    flex: 0.75, // 75% of screen
+    flex: 0.75,
   },
   gestureCameraContainer: {
-    flex: 1, // 50% of bottom layer
+    flex: 1,
     width: "100%",
     backgroundColor: "#000000",
     justifyContent: "center",
@@ -682,7 +716,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   gestureTextContainer: {
-    flex: 1, // 50% of bottom layer
+    flex: 1,
     width: "100%",
     backgroundColor: "#0b0b0d",
     padding: 16,
@@ -730,5 +764,52 @@ const styles = StyleSheet.create({
     color: "#f0f3f8",
     fontSize: 14,
     fontWeight: "600",
+  },
+
+  // ✅ Audio overlay styles
+  audioPlayButton: {
+    position: "absolute",
+    top: 12,
+    left: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "rgba(31, 36, 51, 0.95)",
+    borderWidth: 1,
+    borderColor: "#2b303c",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2000,
+  },
+  audioPlayButtonText: {
+    color: "#f0f3f8",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  transcriptBar: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 14,
+    minHeight: 64,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#232837",
+    backgroundColor: "rgba(12, 14, 21, 0.92)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    zIndex: 1500,
+  },
+  transcriptLabel: {
+    color: "#8f96a3",
+    fontSize: 11,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  transcriptText: {
+    color: "#f0f3f8",
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
