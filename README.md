@@ -10,7 +10,7 @@ SignBridge is a React Native application designed to facilitate seamless communi
 
 ## Running the Frontend
 To run the frontend application:
-1. Navigate to the `SignBridge` directory: `cd SignBridge`
+1. Navigate to the `signbridge` directory: `cd signbridge`
 2. Start the Expo app: `npx expo start`
 
 ## Running the Backend
