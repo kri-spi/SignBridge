@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, Animated, Easing } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Svg, { Circle, Line } from "react-native-svg";
 
@@ -49,12 +49,52 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
   const cameraRef = useRef<CameraView>(null);
   const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { status, currentSign, confidence, landmarks, sendFrame } =
+  const { status, currentSign, confidence, landmarks, sendFrame, isSending } =
     useSignRecognition();
 
   const [isCapturing, setIsCapturing] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const isMountedRef = useRef(true);
+
+  // ✅ Sending animation
+  const sendingAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+
+    if (isSending) {
+      sendingAnim.setValue(0);
+      loop = Animated.loop(
+        Animated.timing(sendingAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        })
+      );
+      loop.start();
+    } else {
+      sendingAnim.stopAnimation();
+      sendingAnim.setValue(0);
+    }
+
+    return () => {
+      loop?.stop();
+    };
+  }, [isSending, sendingAnim]);
+
+  const dot1 = sendingAnim.interpolate({
+    inputRange: [0, 0.33, 1],
+    outputRange: [0.2, 1, 0.2],
+  });
+  const dot2 = sendingAnim.interpolate({
+    inputRange: [0, 0.66, 1],
+    outputRange: [0.2, 1, 0.2],
+  });
+  const dot3 = sendingAnim.interpolate({
+    inputRange: [0, 0.99, 1],
+    outputRange: [0.2, 1, 0.2],
+  });
 
   const handleCameraReady = useCallback(() => {
     // Add a short delay to ensure the video stream has real frames
@@ -162,6 +202,24 @@ export default function GestureCamera({ onStatusChange }: GestureCameraProps) {
           onCameraReady={handleCameraReady}
         />
 
+        {/* ✅ Sending overlay */}
+        {isSending && (
+          <View style={styles.sendingWrap}>
+            <View style={styles.sendingPill}>
+              <Text style={styles.sendingText}>Sending</Text>
+              <Animated.Text style={[styles.sendingDot, { opacity: dot1 }]}>
+                .
+              </Animated.Text>
+              <Animated.Text style={[styles.sendingDot, { opacity: dot2 }]}>
+                .
+              </Animated.Text>
+              <Animated.Text style={[styles.sendingDot, { opacity: dot3 }]}>
+                .
+              </Animated.Text>
+            </View>
+          </View>
+        )}
+
         {/* Hand landmarks visualization */}
         {landmarks.length > 0 && (
           <Svg
@@ -238,6 +296,39 @@ const styles = StyleSheet.create({
     backgroundColor: "#141824",
     position: "relative",
   },
+
+  // ✅ NEW
+  sendingWrap: {
+    position: "absolute",
+    top: 54,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 50,
+  },
+  sendingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(10, 12, 16, 0.9)",
+    borderWidth: 1,
+    borderColor: "#2a2f3a",
+  },
+  sendingText: {
+    color: "#f5f7fb",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  sendingDot: {
+    color: "#f5f7fb",
+    fontSize: 16,
+    fontWeight: "800",
+    marginLeft: 1,
+  },
+
   fallbackTitle: {
     color: "#f5f7fb",
     fontSize: 14,

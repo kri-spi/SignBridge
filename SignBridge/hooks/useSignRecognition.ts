@@ -31,8 +31,8 @@ type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
 export function useSignRecognition() {
   const wsRef = useRef<WebSocket | null>(null);
-  const { text, setText } = useGestureText();
 
+  const { text, setText } = useGestureText();
   const sentenceRef = useRef<string>("");
 
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
@@ -41,80 +41,135 @@ export function useSignRecognition() {
   const [stabilityMs, setStabilityMs] = useState<number>(0);
   const [landmarks, setLandmarks] = useState<Landmark[]>([]);
 
-  // Keep sentenceRef synced
+  // ✅ NEW: sending state for animation
+  const [isSending, setIsSending] = useState(false);
+  const sendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep sentenceRef synced with global text (in case user edits/clears elsewhere)
   useEffect(() => {
-    sentenceRef.current = text ?? "";
+    sentenceRef.current = (text ?? "").toString();
   }, [text]);
 
+  const stopSending = useCallback(() => {
+    setIsSending(false);
+    if (sendingTimerRef.current) {
+      clearTimeout(sendingTimerRef.current);
+      sendingTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
-    const ws = new WebSocket(WS_URL);
-
-    ws.onopen = () => {
-      console.log("✅ WebSocket connected");
-      setStatus("connected");
-    };
-
-    ws.onmessage = (event) => {
+    const connect = () => {
       try {
-        const message: PredictionMessage = JSON.parse(event.data);
-        if (message.type !== "prediction") return;
+        console.log("🔌 Attempting to connect to WebSocket:", WS_URL);
+        setStatus("connecting");
 
-        setCurrentSign(message.token);
-        setConfidence(message.confidence);
-        setStabilityMs(message.stable_ms);
-        setLandmarks(message.landmarks ?? []);
+        const ws = new WebSocket(WS_URL);
 
-        if (message.commit && message.token && message.token !== "NONE") {
-          const word = message.token.toUpperCase();
+        ws.onopen = () => {
+          console.log("✅ WebSocket connected successfully");
+          setStatus("connected");
+        };
 
-          // 🔵 YES triggers SEND
-          if (word === "YES") {
-            const sentence = sentenceRef.current.trim();
+        ws.onmessage = (event) => {
+          try {
+            const message: PredictionMessage = JSON.parse(event.data);
+            if (message.type !== "prediction") return;
 
-            if (sentence.length > 0) {
-              console.log("📤 YES detected — sending message:", sentence);
+            setCurrentSign(message.token);
+            setConfidence(message.confidence);
+            setStabilityMs(message.stable_ms);
+            setLandmarks(message.landmarks ?? []);
 
-              // Speak it
-              Speech.speak(sentence);
+            if (message.commit && message.token && message.token !== "NONE") {
+              const token = String(message.token).toUpperCase();
 
-              // Clear sentence
-              sentenceRef.current = "";
-              setText("");
+              // ✅ YES triggers SEND
+              if (token === "YES") {
+                const sentence = sentenceRef.current.trim();
+
+                if (sentence.length > 0) {
+                  // start animation
+                  setIsSending(true);
+
+                  // fallback: stop animation even if TTS callback fails
+                  if (sendingTimerRef.current) clearTimeout(sendingTimerRef.current);
+                  sendingTimerRef.current = setTimeout(stopSending, 1800);
+
+                  Speech.speak(sentence, {
+                    onDone: stopSending,
+                    onStopped: stopSending,
+                    onError: stopSending,
+                  });
+
+                  // clear the sentence after sending
+                  sentenceRef.current = "";
+                  setText("");
+                }
+
+                return;
+              }
+
+              // otherwise append token to sentence
+              const word = token.replace(/_/g, " ").toLowerCase();
+              const current = sentenceRef.current.trim();
+              const last = current
+                ? current.split(/\s+/).slice(-1)[0]?.toLowerCase()
+                : "";
+
+              if (last === word) return;
+
+              const next = current ? `${current} ${word}` : word;
+              sentenceRef.current = next;
+              setText(next);
             }
-
-            return;
+          } catch (error) {
+            console.error("❌ Failed to parse message:", error);
           }
+        };
 
-          // 🔵 Otherwise append word
-          const formatted = word.replace(/_/g, " ").toLowerCase();
-          const current = sentenceRef.current.trim();
-          const last = current
-            ? current.split(/\s+/).slice(-1)[0]?.toLowerCase()
-            : "";
+        ws.onerror = (error) => {
+          console.error("❌ WebSocket error:", error);
+          console.error("Connection URL:", WS_URL);
+          setStatus("error");
+        };
 
-          if (last === formatted) return;
+        ws.onclose = () => {
+          console.log("🔌 WebSocket disconnected");
+          setStatus("disconnected");
+          wsRef.current = null;
+        };
 
-          const next = current ? `${current} ${formatted}` : formatted;
-
-          sentenceRef.current = next;
-          setText(next);
-        }
-      } catch (err) {
-        console.error("❌ Parse error:", err);
+        wsRef.current = ws;
+      } catch (error) {
+        console.error("❌ Failed to connect:", error);
+        setStatus("error");
       }
     };
 
-    ws.onerror = () => setStatus("error");
+    connect();
 
-    ws.onclose = () => {
-      setStatus("disconnected");
-      wsRef.current = null;
+    return () => {
+      stopSending();
+      wsRef.current?.close();
     };
+  }, [setText, stopSending]);
 
-    wsRef.current = ws;
+  // Keep status in sync with readyState
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const ws = wsRef.current;
+      if (!ws) {
+        setStatus("disconnected");
+        return;
+      }
+      if (ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) {
+        setStatus("disconnected");
+      }
+    }, 1000);
 
-    return () => ws.close();
-  }, [setText]);
+    return () => clearInterval(interval);
+  }, []);
 
   const normalizeBase64 = (input: string) => {
     const stripped = input.includes(",") ? input.split(",")[1] : input;
@@ -144,5 +199,6 @@ export function useSignRecognition() {
     stabilityMs,
     landmarks,
     sendFrame,
+    isSending, // ✅ expose to UI
   };
 }
