@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View, Dimensions } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  Dimensions,
+  ScrollView,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Speech from "expo-speech";
 
@@ -7,15 +15,13 @@ import { useGestureText } from "../contexts/gesture-text";
 import GestureCamera from "../components/gesture-camera";
 import DebugOverlay from "../components/DebugOverlay";
 
-
-
 type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
 export default function Index() {
   const [inputMode, setInputMode] = useState<"speech" | "text" | "gesture">(
     "speech"
   );
-  const { text } = useGestureText();
+  const { text, setText } = useGestureText();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [wsStatus, setWsStatus] = useState<ConnectionStatus>("disconnected");
   const [debugMode] = useState(false);
@@ -29,8 +35,6 @@ export default function Index() {
       onDone: () => setIsSpeaking(false),
     });
   };
-
-  // NOTE: keep this if you still want to enable debug via some hidden gesture later
 
   const isGestureMode = inputMode === "gesture";
 
@@ -160,25 +164,120 @@ export default function Index() {
                   <Text style={styles.statusText}>{statusLabel}</Text>
                 </View>
 
-                <View style={styles.header}>
-                  <Text style={styles.callerName}>Morgan Lee</Text>
-                  <Text style={styles.callStatus}>Call in progress</Text>
-                  <Text style={styles.callTime}>04:28</Text>
-                </View>
-
-                <View style={styles.avatarWrap}>
-                  <View style={styles.avatarInner}>
-                    <Text style={styles.avatarInitials}>ML</Text>
+                <ScrollView
+                  style={styles.normalScroll}
+                  contentContainerStyle={styles.normalScrollContent}
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                >
+                  <View style={styles.header}>
+                    <Text style={styles.callerName}>Morgan Lee</Text>
+                    <Text style={styles.callStatus}>Call in progress</Text>
+                    <Text style={styles.callTime}>04:28</Text>
                   </View>
-                </View>
 
-                {/* ...keep the rest of your normal-mode UI exactly as you already have... */}
+                  <View style={styles.avatarWrap}>
+                    <View style={styles.avatarInner}>
+                      <Text style={styles.avatarInitials}>ML</Text>
+                    </View>
+                  </View>
 
-                <Pressable style={styles.endCallButton}>
-                  <Text style={styles.endCallText}>End Call</Text>
-                </Pressable>
+                  {/* Input mode menu */}
+                  <View style={styles.inputModeCard}>
+                    <Text style={styles.inputModeTitle}>Input mode</Text>
+                    <View style={styles.inputModeRow}>
+                      <Pressable
+                        style={[
+                          styles.inputModeButton,
+                          inputMode === "speech" && styles.inputModeButtonActive,
+                        ]}
+                        onPress={() => setInputMode("speech")}
+                      >
+                        <Text style={styles.inputModeIcon}>🎤</Text>
+                        <Text
+                          style={[
+                            styles.inputModeLabel,
+                            inputMode === "speech" && styles.inputModeLabelActive,
+                          ]}
+                        >
+                          Speech
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        style={[
+                          styles.inputModeButton,
+                          inputMode === "text" && styles.inputModeButtonActive,
+                        ]}
+                        onPress={() => setInputMode("text")}
+                      >
+                        <Text style={styles.inputModeIcon}>🔤</Text>
+                        <Text
+                          style={[
+                            styles.inputModeLabel,
+                            inputMode === "text" && styles.inputModeLabelActive,
+                          ]}
+                        >
+                          Text
+                        </Text>
+                      </Pressable>
+
+                      <Pressable style={styles.inputModeButton} onPress={() => setInputMode("gesture")}>
+                        <Text style={styles.inputModeIcon}>👋</Text>
+                        <Text style={styles.inputModeLabel}>Gesture</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  {inputMode === "text" ? (
+                    <View style={styles.textInputCard}>
+                      <Text style={styles.textInputLabel}>Type to speak</Text>
+                      <View style={styles.textInputRow}>
+                        <TextInput
+                          style={styles.textInputField}
+                          placeholder="Enter message"
+                          placeholderTextColor="#667085"
+                          value={text}
+                          onChangeText={setText}
+                          returnKeyType="done"
+                          onSubmitEditing={handleSpeak}
+                        />
+                        <Pressable
+                          style={[
+                            styles.speakButton,
+                            (!text.trim() || isSpeaking) && styles.speakButtonDisabled,
+                          ]}
+                          onPress={handleSpeak}
+                        >
+                          <Text style={styles.speakButtonText}>
+                            {isSpeaking ? "Speaking" : "Send"}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : null}
+
+                  {/* Call controls */}
+                  <View style={styles.controls}>
+                    <View style={styles.controlRow}>
+                      <ControlButton label="Mute" icon="🔇" />
+                      <ControlButton label="Keypad" icon="⌨️" />
+                      <ControlButton label="Speaker" icon="🔊" />
+                    </View>
+                    <View style={styles.controlRow}>
+                      <ControlButton label="Add" icon="➕" />
+                      <ControlButton label="FaceTime" icon="📱" />
+                      <ControlButton label="Contacts" icon="📋" />
+                    </View>
+                  </View>
+
+                  <Pressable style={styles.endCallButton}>
+                    <Text style={styles.endCallText}>End Call</Text>
+                  </Pressable>
+                </ScrollView>
               </>
             )}
+
 
             <DebugOverlay debugMode={debugMode} />
           </View>
@@ -186,12 +285,23 @@ export default function Index() {
       </View>
     </SafeAreaView>
   );
-
-
 }
 
+type ControlButtonProps = {
+  label: string;
+  icon: string;
+};
 
-
+function ControlButton({ label, icon }: ControlButtonProps) {
+  return (
+    <Pressable style={styles.controlButton}>
+      <View style={styles.controlIcon}>
+        <Text style={styles.controlIconText}>{icon}</Text>
+      </View>
+      <Text style={styles.controlLabel}>{label}</Text>
+    </Pressable>
+  );
+}
 
 const { height: screenHeight } = Dimensions.get("window");
 
@@ -202,7 +312,6 @@ const PHONE_RATIO = 390 / 844;
 const phoneHeight = Math.min(screenHeight * 0.9, 780);
 const phoneWidth = phoneHeight * PHONE_RATIO;
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -211,20 +320,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-phoneShell: {
-  width: phoneWidth,
-  height: phoneHeight,
-  borderRadius: 50,
-  padding: 10,
-  backgroundColor: "#0b0c10",
-  shadowColor: "#000",
-  shadowOpacity: 0.45,
-  shadowRadius: 24,
-  shadowOffset: { width: 0, height: 18 },
-  elevation: 20,
-},
+  phoneShell: {
+    width: phoneWidth,
+    height: phoneHeight,
+    borderRadius: 50,
+    padding: 10,
+    backgroundColor: "#0b0c10",
+    shadowColor: "#000",
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 18 },
+    elevation: 20,
+  },
 
-  // NEW: bezel ring
   phoneBezel: {
     flex: 1,
     borderRadius: 44,
@@ -235,15 +343,18 @@ phoneShell: {
     overflow: "hidden",
   },
 
-  screen: {
-    flex: 1,
-    borderRadius: 38,
-    backgroundColor: "#0b0b0d",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 32,
-    overflow: "hidden",
-  },
+screen: {
+  flex: 1,
+  borderRadius: 38,
+  backgroundColor: "#0b0b0d",
+  alignItems: "center",
+  justifyContent: "flex-start", // ✅ was space-between
+  paddingHorizontal: 28,
+  paddingTop: 28,
+  paddingBottom: 24,
+  overflow: "hidden",
+},
+
 
   screenGestureMode: {
     paddingHorizontal: 0,
@@ -263,6 +374,7 @@ phoneShell: {
     borderColor: "#15181f",
     opacity: 0.95,
   },
+
   statusPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -290,6 +402,7 @@ phoneShell: {
     fontWeight: "600",
     letterSpacing: 0.3,
   },
+
   backgroundGlowTop: {
     position: "absolute",
     top: -120,
@@ -314,6 +427,7 @@ phoneShell: {
   header: {
     alignItems: "center",
     marginTop: 8,
+    marginBottom: 16,
   },
   callerName: {
     color: "#f5f7fb",
@@ -332,18 +446,20 @@ phoneShell: {
     marginTop: 12,
     letterSpacing: 1.2,
   },
+
   avatarWrap: {
-    width: 180,
-    height: 180,
+    width: 150,
+    height: 150,
     borderRadius: 90,
     borderWidth: 1,
     borderColor: "#2a2f3a",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(18, 20, 27, 0.8)",
+    marginBottom: 18,
   },
   avatarInner: {
-    width: 150,
+    width: 125,
     height: 150,
     borderRadius: 75,
     backgroundColor: "#232734",
@@ -364,6 +480,7 @@ phoneShell: {
     borderWidth: 1,
     borderColor: "#2a2f3a",
     backgroundColor: "rgba(18, 20, 27, 0.85)",
+    marginBottom: 18,
   },
   inputModeTitle: {
     color: "#8f96a3",
@@ -462,21 +579,26 @@ phoneShell: {
   },
 
   controls: {
-    width: "90%",
-    gap: 20,
+    width: "100%",
+    gap: 16,
+    paddingHorizontal: 6,
+    marginBottom: 20,
   },
   controlRow: {
     flexDirection: "row",
+    width: "100%",
     justifyContent: "space-between",
+    gap: 12,
   },
   controlButton: {
-    alignItems: "center",
-    width: 92,
+  flex: 1,
+  alignItems: "center",
   },
+
   controlIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: "#1f232f",
     borderWidth: 1,
     borderColor: "#2b303c",
@@ -496,8 +618,8 @@ phoneShell: {
   },
 
   endCallButton: {
-    width: 220,
-    height: 56,
+    width: 200,
+    height: 52,
     borderRadius: 28,
     backgroundColor: "#ef3b2d",
     alignItems: "center",
@@ -519,16 +641,6 @@ phoneShell: {
     borderColor: "#ff3b30",
     borderStyle: "dashed",
   },
-  debugLabel: {
-    position: "absolute",
-    top: 2,
-    left: 2,
-    fontSize: 10,
-    color: "#ff3b30",
-    backgroundColor: "rgba(255, 59, 48, 0.2)",
-    paddingHorizontal: 4,
-    zIndex: 999,
-  },
   debugDivider: {
     height: 2,
     width: "100%",
@@ -547,6 +659,16 @@ phoneShell: {
     borderRadius: 6,
     zIndex: 2,
   },
+  normalScroll: {
+  width: "100%",
+  flex: 1,
+  },
+  normalScrollContent: {
+    alignItems: "center",
+    paddingBottom: 28, // ✅ ensures End Call never gets cut off
+    gap: 18,
+  },
+
 
   // Gesture mode layout
   gestureModeContainer: {
