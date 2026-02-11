@@ -47,7 +47,7 @@ export default function Index() {
           ? "#ef4444"
           : "#6b7280";
 
-  return (
+    return (
     <SafeAreaView style={styles.container}>
       {/* iPhone mock shell */}
       <View style={styles.phoneShell}>
@@ -266,6 +266,7 @@ export default function Index() {
       </View>
     </SafeAreaView>
   );
+
 }
 
 type ControlButtonProps = {
